@@ -28,6 +28,7 @@
 # include <dirent.h>
 #endif
 #include <stdbool.h>
+#include <stdint.h>
 #include <sys/stat.h>
 
 #ifdef __cplusplus
@@ -71,10 +72,23 @@ void fs_unmap(struct fs_map *map);
 
 /* input/output */
 
-ssize_t fs_read(void *p, size_t n, const char *path);
-ssize_t fs_write(const void *p, size_t n, const char *path);
+enum {
+	FS_RDONLY = 0x0,
+	FS_WRONLY = 0x1,
+	FS_RDWR = 0x2,
+	FS_APPEND = 0x4,
+	FS_TRUNC = 0x8,
+	FS_CREAT = 0x10,
+	FS_EXCL = 0x20
+};
+
+intptr_t fs_open(const char *path, int flags);
+void fs_close(intptr_t fd);
+
+ssize_t fs_read(intptr_t fd, void *p, size_t n);
+ssize_t fs_write(intptr_t fd, const void *p, size_t n);
 #if __linux__ || __APPLE__
-ssize_t fs_sendfile(int sd, const char *path);
+ssize_t fs_sendfile(int sd, intptr_t fd, size_t n);
 #endif
 
 /* dir ops */

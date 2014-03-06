@@ -100,60 +100,125 @@ void fs_unmap(struct fs_map *map) {
 # endif
 }
 
-ssize_t fs_read(void *p, size_t n, const char *path) {
-#if __linux__ || __APPLE__
-	ssize_t err, off, len;
-	int fd;
+intptr_t fs_open(const char *path, int flags) {
+#if _WIN32
+	HANDLE fd;
+	int oflag = GENERIC_READ;
+	int creat = OPEN_EXISTING;
+	int share = FILE_SHARE_READ | FILE_SHARE_DELETE;
 
-	if ((fd = open(path, O_RDONLY)) < 0)
-		return -1;
+	if ((flags & FS_RDWR) != 0) {
+		oflag |= GENERIC_WRITE;
+		share = 0;
+	}
+
+	if ((flags & FS_WRONLY) != 0) {
+		oflag = GENERIC_WRITE;
+		share = 0;
+	}
+
+	if ((flags & FS_APPEND) != 0) {
+		oflag &= ~FILE_WRITE_DATA;
+		oflag |= FILE_APPEND_DATA;
+	}
+
+	if ((flags & FS_CREAT) != 0)
+		creat = OPEN_ALWAYS;
+
+	if ((flags & FS_TRUNC) != 0)
+		creat = CREATE_ALWAYS;
+
+	if ((flags & O_EXCL) != 0)
+		creat = CREATE_NEW;
+
+	return (intptr_t) CreateFile(
+		path, oflag, share, NULL, creat, FILE_ATTRIBUTE_NORMAL, NULL);
+#elif __linux__ || __APPLE__
+	int oflag = O_RDONLY;
+
+	if ((flags & FS_RDWR) != 0)
+		oflag = O_RDWR;
+
+	if ((flags & FS_WRONLY) != 0)
+		oflag = O_WRONLY;
+
+	if ((flags & FS_APPEND) != 0)
+		oflag |= O_APPEND;
+
+	if ((flags & FS_TRUNC) != 0)
+		oflag |= O_TRUNC;
+
+	if ((flags & FS_EXCL) != 0)
+		oflag |= O_EXCL;
+
+	if ((flags & O_CREAT) != 0)
+		return open(path, oflag | O_CREAT, 0644);
+
+	return open(path, oflag);
+#endif
+}
+
+void fs_close(intptr_t fd) {
+#if _WIN32
+	CloseHandle((HANDLE) fd);
+#elif __linux__ || __APPLE__
+	close(fd);
+#endif
+}
+
+ssize_t fs_read(intptr_t fd, void *p, size_t n) {
+#if _WIN32
+	ssize_t off, len;
+
+	for (off = 0, len = n; len != 0; off += len, len = n - off)
+		if (!ReadFile((HANDLE) fd, (char *) p + off, len, &len, NULL))
+			return -1;
+		else if (len == 0)
+			break;
+
+	return off;
+#elif __linux__ || __APPLE__
+	ssize_t err, off, len;
 
 	for (off = 0, len = n; len != 0; off += err > 0 ? err : 0, len = n - off)
 		if ((err = read(fd, (char *) p + off, len)) == 0)
 			break;
 		else if (errno != EINTR)
-			return close(fd), -1;
+			return -1;
 
-	close(fd);
 	return off;
 #endif
 }
 
-ssize_t fs_write(const void *p, size_t n, const char *path) {
-#if __linux__ || __APPLE__
-	ssize_t err, off, len;
-	int fd;
+ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
+#if _WIN32
+	ssize_t off, len;
 
-	if ((fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0)
-		return -1;
+	for (off = 0, len = n; len != 0; off += len, len = n - off)
+		if (!WriteFile((HANDLE) fd, (const char *) p + off, len, &len, NULL))
+			return -1;
+
+	return -1;
+#elif __linux__ || __APPLE__
+	ssize_t err, off, len;
 
 	for (off = 0, len = n; len != 0; off += err > 0 ? err : 0, len = n - off)
 		if ((err = write(fd, (const char *) p + off, len)) < 0 && errno != EINTR)
-			return close(fd), -1;
+			return -1;
 
-	close(fd);
 	return off;
 #endif
 }
 
 #if __linux__ || __APPLE__
-ssize_t fs_sendfile(int sd, const char *path) {
+ssize_t fs_sendfile(int sd, intptr_t fd, size_t n) {
 	ssize_t err, off;
 	off_t len;
-	int fd;
-	fs_stat_t st;
 
-	if ((fd = open(path, O_RDONLY)) < 0)
-		return -1;
-
-	if (fstat(fd, &st) < 0)
-		return close(fd), -1;
-
-	for (off = 0, len = st.st_size; len != 0; off = len, len = st.st_size - off)
+	for (off = 0, len = n; len != 0; off += len, len = n - off)
 		if ((err = sendfile(fd, sd, off, &len, NULL, 0)) < 0 && errno != EINTR)
-			return close(fd), -1;
+			return -1;
 
-	close(fd);
 	return off;
 }
 #endif
