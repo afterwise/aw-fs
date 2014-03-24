@@ -68,7 +68,7 @@ void *fs_map(struct fs_map *map, const char *path) {
 
 	return map->addr;
 # elif __linux__ || __APPLE__
-	fs_stat_t st;
+	struct stat st;
 	void *addr;
 	int fd;
 
@@ -128,7 +128,7 @@ intptr_t fs_open(const char *path, int flags) {
 	if ((flags & FS_TRUNC) != 0)
 		creat = CREATE_ALWAYS;
 
-	if ((flags & O_EXCL) != 0)
+	if ((flags & FS_EXCL) != 0)
 		creat = CREATE_NEW;
 
 	return (intptr_t) CreateFile(
@@ -151,7 +151,7 @@ intptr_t fs_open(const char *path, int flags) {
 	if ((flags & FS_EXCL) != 0)
 		oflag |= O_EXCL;
 
-	if ((flags & O_CREAT) != 0)
+	if ((flags & FS_CREAT) != 0)
 		return open(path, oflag | O_CREAT, 0644);
 
 	return open(path, oflag);
