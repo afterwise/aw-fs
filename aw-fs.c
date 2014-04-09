@@ -21,15 +21,22 @@
    THE SOFTWARE.
  */
 
+#include "aw-fs.h"
+
 #if __linux__ || __APPLE__
+# include <fcntl.h>
 # include <sys/mman.h>
 # include <sys/socket.h>
-# include <fcntl.h>
 # include <unistd.h>
 #endif
+
+#if __GNUC__
+# include <alloca.h>
+#endif
+
 #include <errno.h>
-#include <stdlib.h>
-#include "aw-fs.h"
+#include <stdio.h>
+#include <string.h>
 
 int fs_stat(const char *path, fs_stat_t *st) {
 #if _WIN32
@@ -223,61 +230,211 @@ ssize_t fs_sendfile(int sd, intptr_t fd, size_t n) {
 }
 #endif
 
-fs_dir_t *fs_firstdir(const char *path, fs_dirent_t *ent) {
+bool fs_begindir(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 #if _WIN32
-	size_t size = strlen(path) + 3;
-	char *buf = malloc(size);
-	fs_dir_t *dir;
+	size_t n = strlen(path) + 3;
+	char *p = alloca(n);
+	unsigned n;
 
-	snprintf(buf, size, "%s/*", path);
-	dir = (fs_dir_t *) (_findfirst(buf, ent) + 1);
+	snprintf(p, n, "%s/*", path);
 
-	free(buf);
-	return dir;
+	if ((dir->dir = _findfirst(p, &buf->finddata[0])) == INVALID_HANDLE_VALUE)
+		return false;
+
+	for (n = 1; n < FS_DIRENT_MAX;) {
+		if (!_findnext(dir->dir, &buf->finddata[n]))
+			break;
+
+		if (buf->data[n].name[0] != '.' || buf->data[n].name[1] != '.' ||
+				buf->data[n].name[2] != 0)
+			n++;
+	}
+
+	dir->data = buf->data;
+	dir->count = n;
+
+	return true;
 #elif __linux__ || __APPLE__
-	fs_dir_t *dir = opendir(path);
-	fs_dirent_t *res;
+# if __APPLE__
+	struct statfs stfs;
+	vol_capabilities_attr_t caps;
+# endif
 
-	if (dir == NULL)
-		return NULL;
+	memset(dir, 0, sizeof *dir);
+	dir->path = path;
 
-	if (readdir_r(dir, ent, &res) < 0 || res != ent)
-		return closedir(dir), NULL;
+# if __APPLE__
+	if (statfs(path, &stfs) == 0) {
+		memset(&dir->attrlist, 0, sizeof dir->attrlist);
+		dir->attrlist.bitmapcount = ATTR_BIT_MAP_COUNT;
+		dir->attrlist.volattr = ATTR_VOL_CAPABILITIES;
 
-	return dir;
+		if (getattrlist(stfs.f_mntonname, &dir->attrlist, &caps, sizeof caps, 0) == 0)
+			if (caps.capabilities[VOL_CAPABILITIES_INTERFACES] & VOL_CAP_INT_READDIRATTR) {
+				dir->attrlist.volattr = 0;
+				dir->attrlist.commonattr = ATTR_CMN_NAME | ATTR_CMN_OBJTYPE | ATTR_CMN_MODTIME;
+				dir->fd = open(path, O_RDONLY);
+			}
+	}
+
+	if (dir->fd <= 0)
+# endif
+		if ((dir->dir = opendir(path)) == NULL)
+			return false;
+
+	if (fs_nextdir(dir, buf))
+		return true;
+
+	fs_enddir(dir);
+	return false;
 #endif
 }
 
-bool fs_nextdir(fs_dir_t *dir, fs_dirent_t *ent) {
+bool fs_nextdir(fs_dir_t *dir, fs_dirbuf_t *buf) {
+	unsigned n;
+
+	if (dir->count > 0 && dir->count < FS_DIRENT_MAX)
+		return false;
+
 #if _WIN32
-	return _findnext((intptr_t) dir, ent) == 0;
+	for (n = 0; n < FS_DIRENT_MAX;) {
+		if (!_findnext(dir->dir, &buf->data[n]))
+			break;
+
+		if (buf->data[n].name[0] != '.' || buf->data[n].name[1] != '.' ||
+				buf->data[n].name[2] != 0)
+			n++;
+	}
+
+	dir->data = buf->data;
+	dir->count = n;
+
 #elif __linux__ || __APPLE__
-	fs_dirent_t *res;
-	return readdir_r(dir, ent, &res) == 0 && res == ent;
+#if __APPLE__
+	if (dir->fd > 0) {
+		unsigned basep, state;
+
+		n = FS_DIRENT_MAX;
+
+		if (getdirentriesattr(
+				dir->fd, &dir->attrlist, &buf->attrbuf, sizeof buf->attrbuf,
+				&n, &basep, &state, 0) <= 0)
+			return false;
+	} else
+#endif
+	{
+		struct dirent *res;
+
+		for (n = 0; n < FS_DIRENT_MAX;) {
+			if (readdir_r(dir->dir, &buf->dirent[n], &res) != 0 ||
+					res != &buf->dirent[n])
+				break;
+
+			if (res->d_name[0] != '.' || res->d_name[1] != '.' || res->d_name[2] != 0)
+				n++;
+		}
+	}
+
+	dir->dirent = buf->dirent;
+	dir->count = n;
+#endif
+
+	return n > 0;
+}
+
+void fs_enddir(fs_dir_t *dir) {
+#if _WIN32
+	_findclose(dir->dir);
+#elif __linux__ || __APPLE__
+# if __APPLE__
+	if (dir->fd > 0)
+		close(dir->fd);
+	else
+# endif
+		closedir(dir->dir);
 #endif
 }
 
-void fs_closedir(fs_dir_t *dir) {
+#if __linux__ || __APPLE__
+static int statdirent(struct stat *st, const char *dir, const char *ent) {
+	size_t n = strlen(dir) + strlen(ent) + 2;
+	char *p = alloca(n);
+
+	snprintf(p, n, "%s/%s", dir, ent);
+	return stat(p, st);
+}
+#endif
+
+void fs_direntinfo(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir) {
 #if _WIN32
-	_findclose((intptr_t) dir);
+	struct _finddata_t *data = dir->data;
+
+	if (name != NULL)
+		*name = data->name;
+
+	if (isdir != NULL)
+		*isdir = (data->attrib == _A_SUBDIR);
+
+	if (mtime != NULL)
+		*mtime = data->time_write;
 #elif __linux__ || __APPLE__
-	closedir(dir);
+# if __APPLE__
+	if (dir->fd > 0) {
+		struct fs_attr *attr = dir->attr;
+
+		if (name != NULL)
+			*name = ((char *) &attr->name) + attr->name.attr_dataoffset;
+
+		if (isdir != NULL) {
+			if (attr->type == VDIR)
+				*isdir = 1;
+			else if (attr->type == VLNK) {
+				struct stat st;
+
+				statdirent(&st, dir->path, ((char *) &attr->name) + attr->name.attr_dataoffset);
+				*isdir = S_ISDIR(st.st_mode);
+			} else
+				*isdir = 0;
+		}
+
+		if (mtime != NULL)
+			*mtime = attr->mtime.tv_sec;
+	} else
+# endif
+	{
+		if (name != NULL)
+			*name = dir->dirent->d_name;
+
+		if (isdir != NULL)
+			*isdir = (dir->dirent->d_type == DT_DIR);
+
+		if (mtime != NULL) {
+			struct stat st;
+
+			statdirent(&st, dir->path, dir->dirent->d_name);
+#if __APPLE__
+			*mtime = st.st_mtimespec.tv_sec;
+#else
+			*mtime = st.st_mtime;
+#endif
+		}
+	}
 #endif
 }
 
-const char *fs_dirent_name(fs_dirent_t *ent) {
+bool fs_nextdirent(fs_dir_t *dir) {
 #if _WIN32
-	return ent->name;
+	dir->data = &dir->data[1];
 #elif __linux__ || __APPLE__
-	return ent->d_name;
+# if __APPLE__
+	if (dir->fd > 0) {
+		struct fs_attr *attr = dir->attr;
+		dir->attr = (struct fs_attr *) ((unsigned char *) attr + attr->length);
+	} else
+# endif
+		dir->dirent = &dir->dirent[1];
 #endif
-}
 
-bool fs_dirent_isdir(fs_dirent_t *ent) {
-#if _WIN32
-	return ent->attrib == _A_SUBDIR;
-#elif __linux__ || __APPLE__
-	return ent->d_type == DT_DIR;
-#endif
+	return --dir->count > 0;
 }
 

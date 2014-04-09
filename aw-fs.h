@@ -27,8 +27,17 @@
 #if __linux__ || __APPLE__
 # include <dirent.h>
 #endif
-#include <stdbool.h>
-#include <stdint.h>
+
+#if !_MSC_VER
+# include <stdbool.h>
+# include <stdint.h>
+#endif
+
+#if __APPLE__
+# include <sys/mount.h>
+# include <sys/vnode.h>
+#endif
+
 #include <sys/stat.h>
 
 #ifdef __cplusplus
@@ -43,13 +52,52 @@ extern "C" {
 
 #if _WIN32
 typedef struct __stat64 fs_stat_t;
-typedef struct _finddata_t fs_dirent_t;
-typedef struct _dir_t fs_dir_t;
 #elif __linux__ || __APPLE__
 typedef struct stat fs_stat_t;
-typedef struct dirent fs_dirent_t;
-typedef DIR fs_dir_t;
 #endif
+
+#define FS_DIRENT_MAX (64)
+
+#if __APPLE__
+struct fs_attr {
+	unsigned length;
+	attrreference_t name;
+	fsobj_type_t type;
+	struct timespec mtime;
+} __attribute__((aligned(4), packed));
+#endif
+
+typedef union {
+#if _WIN32
+	struct _finddata_t data[FS_DIRENT_MAX];
+#elif __linux__ || __APPLE__
+# if __APPLE__
+	char attrbuf[FS_DIRENT_MAX * (sizeof (struct fs_attr) + 64)];
+# endif
+	struct dirent dirent[FS_DIRENT_MAX];
+#endif
+} fs_dirbuf_t;
+
+typedef struct {
+#if _WIN32
+	intptr_t dir;
+	struct _finddata_t *data;
+#elif __linux__ || __APPLE__
+	const char *path;
+	int fd;
+	DIR *dir;
+	union {
+		struct dirent *dirent;
+# if __APPLE__
+		struct fs_attr *attr;
+# endif
+	};
+# if __APPLE__
+	struct attrlist attrlist;
+# endif
+#endif
+	unsigned count;
+} fs_dir_t;
 
 /* status */
 
@@ -93,12 +141,12 @@ ssize_t fs_sendfile(int sd, intptr_t fd, size_t n);
 
 /* dir ops */
 
-fs_dir_t *fs_firstdir(const char *path, fs_dirent_t *ent);
-bool fs_nextdir(fs_dir_t *dir, fs_dirent_t *ent);
-void fs_closedir(fs_dir_t *dir);
+bool fs_begindir(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path);
+bool fs_nextdir(fs_dir_t *dir, fs_dirbuf_t *buf);
+void fs_enddir(fs_dir_t *dir);
 
-const char *fs_dirent_name(fs_dirent_t *ent);
-bool fs_dirent_isdir(fs_dirent_t *ent);
+void fs_direntinfo(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir);
+bool fs_nextdirent(fs_dir_t *dir);
 
 #ifdef __cplusplus
 } /* extern "C" */

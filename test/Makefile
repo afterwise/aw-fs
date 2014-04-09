@@ -2,7 +2,7 @@
 export CFLAGS += -Wall -Wextra
 
 test: test.o ../libaw-fs.a
-	clang -o $@ $^
+	clang $(LDFLAGS) -o $@ $^
 
 %.o: %.c
 	clang $(CFLAGS) -I.. -c $< -o $@

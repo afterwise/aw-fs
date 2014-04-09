@@ -7,13 +7,16 @@
 
 int main(int argc, char *argv[]) {
 	fs_stat_t st;
-	fs_dir_t *dir;
-	fs_dirent_t ent;
+	fs_dir_t dir;
+	fs_dirbuf_t buf;
 	struct fs_map map;
 	char *text;
 	char *text2;
 	size_t size;
 	intptr_t fd;
+	const char *name;
+	int isdir;
+	time_t mtime;
 
 	(void) argc;
 	(void) argv;
@@ -41,15 +44,19 @@ int main(int argc, char *argv[]) {
 	free(text);
 	free(text2);
 
-	dir = fs_firstdir("..", &ent);
+	if (fs_begindir(&dir, &buf, "..")) {
+		do {
+			do {
+				fs_direntinfo(&name, &isdir, &mtime, &dir);
 
-	do {
-		printf(
-			"dir .. -> %s (dir? %s)\n", fs_dirent_name(&ent),
-			fs_dirent_isdir(&ent) ? "Y" : "N");
-	} while (fs_nextdir(dir, &ent));
+				printf(
+					"dir .. -> %s | dir? %s | mtime: %s", name,
+					isdir ? "Y" : "N", ctime(&mtime));
+			} while (fs_nextdirent(&dir));
+		} while (fs_nextdir(&dir, &buf));
 
-	fs_closedir(dir);
+		fs_enddir(&dir);
+	}
 
 	return 0;
 }
