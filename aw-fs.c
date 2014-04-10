@@ -30,8 +30,13 @@
 # include <unistd.h>
 #endif
 
+#if _WIN32
+# include <malloc.h>
+#else
+# include <alloca.h>
+#endif
+
 #include <errno.h>
-#include <malloc.h>
 #include <stdio.h>
 #include <string.h>
 
