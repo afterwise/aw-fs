@@ -110,8 +110,8 @@ struct fs_map {
 	void *addr;
 	size_t size;
 # if _WIN32
-	HANDLE file;
-	HANDLE mapping;
+	intptr_t file;
+	intptr_t mapping;
 # endif
 };
 
@@ -141,12 +141,11 @@ ssize_t fs_sendfile(int sd, intptr_t fd, size_t n);
 
 /* dir ops */
 
-bool fs_begindir(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path);
-bool fs_nextdir(fs_dir_t *dir, fs_dirbuf_t *buf);
-void fs_enddir(fs_dir_t *dir);
+bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path);
+bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf);
+void fs_closedirwalk(fs_dir_t *dir);
 
-void fs_direntinfo(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir);
-bool fs_nextdirent(fs_dir_t *dir);
+bool fs_nextdirent(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir);
 
 #ifdef __cplusplus
 } /* extern "C" */

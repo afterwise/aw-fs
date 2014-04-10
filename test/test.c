@@ -44,18 +44,15 @@ int main(int argc, char *argv[]) {
 	free(text);
 	free(text2);
 
-	if (fs_begindir(&dir, &buf, "..")) {
+	if (fs_opendirwalk(&dir, &buf, "..")) {
 		do {
-			do {
-				fs_direntinfo(&name, &isdir, &mtime, &dir);
-
+			while (fs_nextdirent(&name, &isdir, &mtime, &dir))
 				printf(
 					"dir .. -> %s | dir? %s | mtime: %s", name,
 					isdir ? "Y" : "N", ctime(&mtime));
-			} while (fs_nextdirent(&dir));
-		} while (fs_nextdir(&dir, &buf));
+		} while (fs_bufferdirwalk(&dir, &buf));
 
-		fs_enddir(&dir);
+		fs_closedirwalk(&dir);
 	}
 
 	return 0;

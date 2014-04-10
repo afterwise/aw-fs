@@ -230,7 +230,7 @@ ssize_t fs_sendfile(int sd, intptr_t fd, size_t n) {
 }
 #endif
 
-bool fs_begindir(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
+bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 #if _WIN32
 	size_t n = strlen(path) + 3;
 	char *p = alloca(n);
@@ -282,15 +282,15 @@ bool fs_begindir(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 		if ((dir->dir = opendir(path)) == NULL)
 			return false;
 
-	if (fs_nextdir(dir, buf))
+	if (fs_bufferdirwalk(dir, buf))
 		return true;
 
-	fs_enddir(dir);
+	fs_closedirwalk(dir);
 	return false;
 #endif
 }
 
-bool fs_nextdir(fs_dir_t *dir, fs_dirbuf_t *buf) {
+bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf) {
 	unsigned n;
 
 	if (dir->count > 0 && dir->count < FS_DIRENT_MAX)
@@ -310,7 +310,7 @@ bool fs_nextdir(fs_dir_t *dir, fs_dirbuf_t *buf) {
 	dir->count = n;
 
 #elif __linux__ || __APPLE__
-#if __APPLE__
+# if __APPLE__
 	if (dir->fd > 0) {
 		unsigned basep, state;
 
@@ -321,7 +321,7 @@ bool fs_nextdir(fs_dir_t *dir, fs_dirbuf_t *buf) {
 				&n, &basep, &state, 0) <= 0)
 			return false;
 	} else
-#endif
+# endif
 	{
 		struct dirent *res;
 
@@ -342,7 +342,7 @@ bool fs_nextdir(fs_dir_t *dir, fs_dirbuf_t *buf) {
 	return n > 0;
 }
 
-void fs_enddir(fs_dir_t *dir) {
+void fs_closedirwalk(fs_dir_t *dir) {
 #if _WIN32
 	_findclose(dir->dir);
 #elif __linux__ || __APPLE__
@@ -365,8 +365,8 @@ static int statdirent(struct stat *st, const char *dir, const char *ent) {
 }
 #endif
 
-void fs_direntinfo(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir) {
 #if _WIN32
+static void nextdata(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir) {
 	struct _finddata_t *data = dir->data;
 
 	if (name != NULL)
@@ -377,64 +377,77 @@ void fs_direntinfo(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir) 
 
 	if (mtime != NULL)
 		*mtime = data->time_write;
-#elif __linux__ || __APPLE__
-# if __APPLE__
-	if (dir->fd > 0) {
-		struct fs_attr *attr = dir->attr;
 
-		if (name != NULL)
-			*name = ((char *) &attr->name) + attr->name.attr_dataoffset;
+	dir->data = &dir->data[1];
+}
+#endif
 
-		if (isdir != NULL) {
-			if (attr->type == VDIR)
-				*isdir = 1;
-			else if (attr->type == VLNK) {
-				struct stat st;
+#if __APPLE__
+static void nextattr(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir) {
+	struct fs_attr *attr = dir->attr;
 
-				statdirent(&st, dir->path, ((char *) &attr->name) + attr->name.attr_dataoffset);
-				*isdir = S_ISDIR(st.st_mode);
-			} else
-				*isdir = 0;
-		}
+	if (name != NULL)
+		*name = ((char *) &attr->name) + attr->name.attr_dataoffset;
 
-		if (mtime != NULL)
-			*mtime = attr->mtime.tv_sec;
-	} else
-# endif
-	{
-		if (name != NULL)
-			*name = dir->dirent->d_name;
-
-		if (isdir != NULL)
-			*isdir = (dir->dirent->d_type == DT_DIR);
-
-		if (mtime != NULL) {
+	if (isdir != NULL) {
+		if (attr->type == VDIR)
+			*isdir = 1;
+		else if (attr->type == VLNK) {
 			struct stat st;
 
-			statdirent(&st, dir->path, dir->dirent->d_name);
-#if __APPLE__
-			*mtime = st.st_mtimespec.tv_sec;
-#else
-			*mtime = st.st_mtime;
-#endif
-		}
+			statdirent(&st, dir->path, ((char *) &attr->name) + attr->name.attr_dataoffset);
+			*isdir = S_ISDIR(st.st_mode);
+		} else
+			*isdir = 0;
 	}
-#endif
-}
 
-bool fs_nextdirent(fs_dir_t *dir) {
+	if (mtime != NULL)
+		*mtime = attr->mtime.tv_sec;
+
+	dir->attr = (struct fs_attr *) ((unsigned char *) attr + attr->length);
+}
+#endif
+
+#if __APPLE__ || __linux__
+static void nextdirent(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir) {
+	if (name != NULL)
+		*name = dir->dirent->d_name;
+
+	if (isdir != NULL)
+		*isdir = (dir->dirent->d_type == DT_DIR);
+
+	if (mtime != NULL) {
+		struct stat st;
+
+		statdirent(&st, dir->path, dir->dirent->d_name);
+# if __APPLE__
+		*mtime = st.st_mtimespec.tv_sec;
+# else
+		*mtime = st.st_mtime;
+# endif
+	}
+
+	dir->dirent = &dir->dirent[1];
+}
+#endif
+
+bool fs_nextdirent(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir) {
+	if (dir->count > 0) {
 #if _WIN32
-	dir->data = &dir->data[1];
+		nextdata(name, isdir, mtime, dir);
 #elif __linux__ || __APPLE__
 # if __APPLE__
-	if (dir->fd > 0) {
-		struct fs_attr *attr = dir->attr;
-		dir->attr = (struct fs_attr *) ((unsigned char *) attr + attr->length);
-	} else
+		if (dir->fd > 0)
+			nextattr(name, isdir, mtime, dir);
+		else
 # endif
-		dir->dirent = &dir->dirent[1];
+			nextdirent(name, isdir, mtime, dir);
 #endif
 
-	return --dir->count > 0;
+		dir->count--;
+		return true;
+	}
+
+	return false;
 }
 
