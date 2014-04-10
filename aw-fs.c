@@ -46,10 +46,6 @@ int fs_stat(const char *path, fs_stat_t *st) {
 #endif
 }
 
-size_t fs_stat_size(fs_stat_t *st) {
-	return st->st_size;
-}
-
 void *fs_map(struct fs_map *map, const char *path) {
 # if _WIN32
 	LARGE_INTEGER size;

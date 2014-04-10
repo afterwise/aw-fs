@@ -22,9 +22,9 @@ int main(int argc, char *argv[]) {
 	(void) argv;
 
 	fs_stat("test.c", &st);
-	printf("stat test.c -> size=%zu\n", fs_stat_size(&st));
+	printf("stat test.c -> size=%lld\n", st.st_size);
 
-	size = fs_stat_size(&st);
+	size = st.st_size;
 	text = malloc(size + 1);
 	text2 = malloc(size + 1);
 

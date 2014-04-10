@@ -102,7 +102,6 @@ typedef struct {
 /* status */
 
 int fs_stat(const char *path, fs_stat_t *st);
-size_t fs_stat_size(fs_stat_t *st);
 
 /* memory-mapping */
 
