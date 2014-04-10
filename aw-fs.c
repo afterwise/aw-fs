@@ -175,10 +175,10 @@ void fs_close(intptr_t fd) {
 #endif
 }
 
-ssize_t fs_seek(intptr_t fd, ssize_t offs, int whence) {
+off_t fs_seek(intptr_t fd, off_t off, int whence) {
 #if _WIN32
-	LARGE_INTEGER loffs;
-	loffs.QuadPart = offs;
+	LARGE_INTEGER loff;
+	loff.QuadPart = off;
 #endif
 
 	switch (whence) {
@@ -208,9 +208,9 @@ ssize_t fs_seek(intptr_t fd, ssize_t offs, int whence) {
 	}
 
 #if _WIN32
-	return SetFilePointerEx((HANDLE) fd, loffs, NULL, FILE_BEGIN) ? 0 : -1;
+	return SetFilePointerEx((HANDLE) fd, loff, &loff, FILE_BEGIN) ? loff.QuadPart : -1;
 #elif __linux__ || __APPLE__
-	return lseek(fd, offs, SEEK_SET);
+	return lseek(fd, off, SEEK_SET);
 #endif
 }
 
