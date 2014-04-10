@@ -208,9 +208,9 @@ off_t fs_seek(intptr_t fd, off_t off, int whence) {
 	}
 
 #if _WIN32
-	return SetFilePointerEx((HANDLE) fd, loff, &loff, FILE_BEGIN) ? loff.QuadPart : -1;
+	return SetFilePointerEx((HANDLE) fd, loff, &loff, whence) ? loff.QuadPart : -1;
 #elif __linux__ || __APPLE__
-	return lseek(fd, off, SEEK_SET);
+	return lseek(fd, off, whence);
 #endif
 }
 
