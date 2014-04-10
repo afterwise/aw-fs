@@ -38,6 +38,11 @@
 # include <sys/vnode.h>
 #endif
 
+#if _WIN32
+# include <IO.h>
+# include <sys/types.h>
+#endif
+
 #include <sys/stat.h>
 
 #ifdef __cplusplus
@@ -109,8 +114,8 @@ struct fs_map {
 	void *addr;
 	size_t size;
 # if _WIN32
-	intptr_t file;
-	intptr_t mapping;
+	HANDLE file;
+	HANDLE mapping;
 # endif
 };
 

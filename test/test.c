@@ -1,9 +1,11 @@
 
+#include "aw-fs.h"
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "aw-fs.h"
+#include <time.h>
 
 int main(int argc, char *argv[]) {
 	fs_stat_t st;
@@ -22,7 +24,7 @@ int main(int argc, char *argv[]) {
 	(void) argv;
 
 	fs_stat("test.c", &st);
-	printf("stat test.c -> size=%lld\n", st.st_size);
+	printf("stat test.c -> size=%ld\n", (unsigned long) st.st_size);
 
 	size = st.st_size;
 	text = malloc(size + 1);

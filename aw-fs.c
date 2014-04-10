@@ -30,11 +30,8 @@
 # include <unistd.h>
 #endif
 
-#if __GNUC__
-# include <alloca.h>
-#endif
-
 #include <errno.h>
+#include <malloc.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -52,7 +49,7 @@ void *fs_map(struct fs_map *map, const char *path) {
 
 	if ((map->file = CreateFile(
 			path, GENERIC_READ, FILE_SHARE_READ, NULL,
-			OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL)) == INVALID_HANDLE_VALUE)
+			OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE)
 		return NULL;
 
 	if (!GetFileSizeEx(map->file, &size)) {
@@ -67,7 +64,7 @@ void *fs_map(struct fs_map *map, const char *path) {
 	}
 
 	map->addr = MapViewOfFile(map->mapping, FILE_MAP_READ, 0, 0, size.QuadPart);
-	map->size = size;
+	map->size = size.QuadPart;
 
 	return map->addr;
 # elif __linux__ || __APPLE__
@@ -134,8 +131,12 @@ intptr_t fs_open(const char *path, int flags) {
 	if ((flags & FS_EXCL) != 0)
 		creat = CREATE_NEW;
 
-	return (intptr_t) CreateFile(
-		path, oflag, share, NULL, creat, FILE_ATTRIBUTE_NORMAL, NULL);
+	if ((fd = CreateFile(
+			path, oflag, share, NULL, creat,
+			FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE)
+		return -1;
+
+	return (intptr_t) fd;
 #elif __linux__ || __APPLE__
 	int oflag = O_RDONLY;
 
@@ -171,7 +172,8 @@ void fs_close(intptr_t fd) {
 
 ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 #if _WIN32
-	ssize_t off, len;
+	ssize_t off;
+	unsigned long len;
 
 	for (off = 0, len = n; len != 0; off += len, len = n - off)
 		if (!ReadFile((HANDLE) fd, (char *) p + off, len, &len, NULL))
@@ -195,7 +197,8 @@ ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 
 ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 #if _WIN32
-	ssize_t off, len;
+	ssize_t off;
+	unsigned long len;
 
 	for (off = 0, len = n; len != 0; off += len, len = n - off)
 		if (!WriteFile((HANDLE) fd, (const char *) p + off, len, &len, NULL))
@@ -228,17 +231,17 @@ ssize_t fs_sendfile(int sd, intptr_t fd, size_t n) {
 
 bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 #if _WIN32
-	size_t n = strlen(path) + 3;
-	char *p = alloca(n);
+	size_t np = strlen(path) + 3;
+	char *p = alloca(np);
 	unsigned n;
 
-	snprintf(p, n, "%s/*", path);
+	snprintf(p, np, "%s/*", path);
 
-	if ((dir->dir = _findfirst(p, &buf->finddata[0])) == INVALID_HANDLE_VALUE)
+	if ((dir->dir = _findfirst(p, &buf->data[0])) < 0)
 		return false;
 
 	for (n = 1; n < FS_DIRENT_MAX;) {
-		if (!_findnext(dir->dir, &buf->finddata[n]))
+		if (!_findnext(dir->dir, &buf->data[n]))
 			break;
 
 		if (buf->data[n].name[0] != '.' || buf->data[n].name[1] != '.' ||
@@ -353,10 +356,10 @@ void fs_closedirwalk(fs_dir_t *dir) {
 
 #if __linux__ || __APPLE__
 static int statdirent(struct stat *st, const char *dir, const char *ent) {
-	size_t n = strlen(dir) + strlen(ent) + 2;
-	char *p = alloca(n);
+	size_t np = strlen(dir) + strlen(ent) + 2;
+	char *p = alloca(np);
 
-	snprintf(p, n, "%s/%s", dir, ent);
+	snprintf(p, np, "%s/%s", dir, ent);
 	return stat(p, st);
 }
 #endif
