@@ -175,6 +175,45 @@ void fs_close(intptr_t fd) {
 #endif
 }
 
+ssize_t fs_seek(intptr_t fd, ssize_t offs, int whence) {
+#if _WIN32
+	LARGE_INTEGER loffs;
+	loffs.QuadPart = offs;
+#endif
+
+	switch (whence) {
+	case FS_SEEK_SET:
+#if _WIN32
+		whence = FILE_BEGIN;
+#elif __linux__ || __APPLE__
+		whence = SEEK_SET;
+#endif
+		break;
+
+	case FS_SEEK_CUR:
+#if _WIN32
+		whence = FILE_CURRENT;
+#elif __linux__ || __APPLE__
+		whence = SEEK_CUR;
+#endif
+		break;
+
+	case FS_SEEK_END:
+#if _WIN32
+		whence = FILE_END;
+#elif __linux__ || __APPLE__
+		whence = SEEK_END;
+#endif
+		break;
+	}
+
+#if _WIN32
+	return SetFilePointerEx((HANDLE) fd, loffs, NULL, FILE_BEGIN) ? 0 : -1;
+#elif __linux__ || __APPLE__
+	return lseek(fd, offs, SEEK_SET);
+#endif
+}
+
 ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 #if _WIN32
 	ssize_t off;

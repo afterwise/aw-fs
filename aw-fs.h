@@ -137,6 +137,14 @@ enum {
 intptr_t fs_open(const char *path, int flags);
 void fs_close(intptr_t fd);
 
+enum {
+	FS_SEEK_SET,
+	FS_SEEK_CUR,
+	FS_SEEK_END
+};
+
+ssize_t fs_seek(intptr_t fd, ssize_t offs, int whence);
+
 ssize_t fs_read(intptr_t fd, void *p, size_t n);
 ssize_t fs_write(intptr_t fd, const void *p, size_t n);
 #if __linux__ || __APPLE__
