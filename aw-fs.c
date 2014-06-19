@@ -232,7 +232,7 @@ ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 	for (off = 0, len = n; len != 0; off += err > 0 ? err : 0, len = n - off)
 		if ((err = read(fd, (char *) p + off, len)) == 0)
 			break;
-		else if (errno != EINTR)
+		else if (err < 0 && errno != EINTR)
 			return -1;
 
 	return off;
