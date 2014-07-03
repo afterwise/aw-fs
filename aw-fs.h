@@ -147,9 +147,7 @@ off_t fs_seek(intptr_t fd, off_t off, int whence);
 
 ssize_t fs_read(intptr_t fd, void *p, size_t n);
 ssize_t fs_write(intptr_t fd, const void *p, size_t n);
-#if __linux__ || __APPLE__
 ssize_t fs_sendfile(int sd, intptr_t fd, size_t n);
-#endif
 
 /* dir ops */
 

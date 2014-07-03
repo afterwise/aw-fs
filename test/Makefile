@@ -3,6 +3,7 @@ export CFLAGS += -Wall -Wextra
 
 test: test.o ../libaw-fs.a
 	$(CC) $(LDFLAGS) -o $@ $^
+#	$(CC) $(LDFLAGS) -o $@ $^ -lmswsock
 
 %.o: %.c
 	$(CC) $(CFLAGS) -I.. -c $< -o $@

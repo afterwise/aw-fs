@@ -23,7 +23,9 @@
 
 #include "aw-fs.h"
 
-#if __linux__ || __APPLE__
+#if _WIN32
+# include <winsock.h>
+#elif __linux__ || __APPLE__
 # include <fcntl.h>
 # include <sys/mman.h>
 # include <sys/socket.h>
@@ -260,8 +262,13 @@ ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 #endif
 }
 
-#if __linux__ || __APPLE__
 ssize_t fs_sendfile(int sd, intptr_t fd, size_t n) {
+#if _WIN32
+	if (!TransmitFile(sd, (HANDLE) fd, n, 0, NULL, NULL, 0))
+		return -1;
+
+	return n;
+#elif __linux__ || __APPLE__
 	ssize_t err, off;
 	off_t len;
 
@@ -270,8 +277,8 @@ ssize_t fs_sendfile(int sd, intptr_t fd, size_t n) {
 			return -1;
 
 	return off;
-}
 #endif
+}
 
 bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 #if _WIN32
