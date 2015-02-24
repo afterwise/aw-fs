@@ -177,6 +177,59 @@ void fs_close(intptr_t fd) {
 #endif
 }
 
+int fs_lock(intptr_t fd, int flags) {
+#if _WIN32
+	OVERLAPPED ol;
+	memset(&ol, 0, sizeof ol);
+
+	if ((flags & FS_LOCK_UNLOCK) == 0) {
+		int lflag = 0;
+
+		if ((flags & FS_LOCK_EXCL) != 0)
+			lflag |= LOCKFILE_EXCLUSIVE_LOCK;
+
+		if ((flags & FS_LOCK_NOWAIT) != 0)
+			lflag |= LOCKFILE_FAIL_IMMEDIATELY;
+
+		if (!LockFileEx((HANDLE) fd, lflag, 0, MAXDWORD, MAXDWORD, &ol))
+			return -1;
+	} else if (!UnlockFileEx((HANDLE) fd, 0, MAXDWORD, MAXDWORD, &ol))
+		return -1;
+
+	return 0;
+#elif __linux__ || __APPLE__
+	struct flock fl;
+
+	if ((flags & FS_LOCK_UNLOCK) != 0)
+		fl.l_type = F_UNLCK;
+	else if ((flags & FS_LOCK_EXCL) != 0)
+		fl.l_type = F_WRLCK;
+	else
+		fl.l_type = F_RDLCK;
+
+	fl.l_start = 0;
+	fl.l_len = 0;
+	fl.l_pid = getpid();
+
+	if ((flags & (FS_LOCK_NOWAIT | FS_LOCK_UNLOCK)) == 0)
+		return fcntl(fd, F_SETLKW, &fl);
+	else
+		return fcntl(fd, F_SETLK, &fl);
+#endif
+}
+
+int fs_truncate(intptr_t fd, size_t n) {
+#if _WIN32
+	if (SetFilePointerEx((HANDLE) fd, n, NULL, FILE_BEGIN))
+		if (SetEndOfFile((HANDLE) fd))
+			return 0;
+
+	return -1;
+#else
+	return ftruncate(fd, n);
+#endif
+}
+
 off_t fs_seek(intptr_t fd, off_t off, int whence) {
 #if _WIN32
 	LARGE_INTEGER loff;
@@ -234,7 +287,7 @@ ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 	for (off = 0, len = n; len != 0; off += err > 0 ? err : 0, len = n - off)
 		if ((err = read(fd, (char *) p + off, len)) == 0)
 			break;
-		else if (err < 0 && errno != EINTR)
+		else if (err < 0)
 			return -1;
 
 	return off;
@@ -255,7 +308,7 @@ ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 	ssize_t err, off, len;
 
 	for (off = 0, len = n; len != 0; off += err > 0 ? err : 0, len = n - off)
-		if ((err = write(fd, (const char *) p + off, len)) < 0 && errno != EINTR)
+		if ((err = write(fd, (const char *) p + off, len)) < 0)
 			return -1;
 
 	return off;
@@ -273,7 +326,7 @@ ssize_t fs_sendfile(int sd, intptr_t fd, size_t n) {
 	off_t len;
 
 	for (off = 0, len = n; len != 0; off += len, len = n - off)
-		if ((err = sendfile(fd, sd, off, &len, NULL, 0)) < 0 && errno != EINTR)
+		if ((err = sendfile(fd, sd, off, &len, NULL, 0)) < 0)
 			return -1;
 
 	return off;

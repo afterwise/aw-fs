@@ -138,6 +138,18 @@ intptr_t fs_open(const char *path, int flags);
 void fs_close(intptr_t fd);
 
 enum {
+	FS_LOCK_SHARE = 0x0,
+	FS_LOCK_EXCL = 0x1,
+	FS_LOCK_NOWAIT = 0x2,
+	FS_LOCK_UNLOCK = 0x4
+};
+
+int fs_lock(intptr_t fd, int flags);
+
+int fs_truncate(intptr_t fd, size_t n);
+ssize_t fs_length(intptr_t fd);
+
+enum {
 	FS_SEEK_SET,
 	FS_SEEK_CUR,
 	FS_SEEK_END
