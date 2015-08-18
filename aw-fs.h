@@ -147,7 +147,6 @@ enum {
 int fs_lock(intptr_t fd, int flags);
 
 int fs_truncate(intptr_t fd, size_t n);
-ssize_t fs_length(intptr_t fd);
 
 enum {
 	FS_SEEK_SET,
