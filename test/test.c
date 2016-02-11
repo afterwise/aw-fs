@@ -23,20 +23,23 @@ int main(int argc, char *argv[]) {
 	(void) argc;
 	(void) argv;
 
-	fs_stat("test.c", &st);
-	printf("stat test.c -> size=%ld\n", (unsigned long) st.st_size);
+	if (fs_stat("test/test.c", &st) < 0)
+		return perror("fs_stat"), 1;
+	printf("stat test/test.c -> size=%ld\n", (unsigned long) st.st_size);
 
 	size = st.st_size;
 	text = malloc(size + 1);
 	text2 = malloc(size + 1);
 
-	fs_map(&map, "test.c");
+	if (fs_map(&map, "test/test.c") == NULL)
+		return perror("fs_map"), 1;
 	memcpy(text, map.addr, size);
 	text[size] = 0;
 	printf("<<<%s>>>\n", text);
 	fs_unmap(&map);
 
-	fd = fs_open("test.c", FS_RDONLY);
+	if ((fd = fs_open("test/test.c", FS_RDONLY)) < 0)
+		return perror("fs_open"), 1;
 	fs_read(fd, text2, size);
 	text2[size] = 0;
 	fs_close(fd);
@@ -46,11 +49,11 @@ int main(int argc, char *argv[]) {
 	free(text);
 	free(text2);
 
-	if (fs_opendirwalk(&dir, &buf, "..")) {
+	if (fs_opendirwalk(&dir, &buf, ".")) {
 		do {
 			while (fs_nextdirent(&name, &isdir, &mtime, &dir))
 				printf(
-					"dir .. -> %s | dir? %s | mtime: %s", name,
+					"dir . -> %s | dir? %s | mtime: %s", name,
 					isdir ? "Y" : "N", ctime(&mtime));
 		} while (fs_bufferdirwalk(&dir, &buf));
 
