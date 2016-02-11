@@ -32,6 +32,10 @@
 # include <unistd.h>
 #endif
 
+#if __linux__
+# include <sys/sendfile.h>
+#endif
+
 #if _WIN32
 # include <malloc.h>
 #else
@@ -321,7 +325,16 @@ ssize_t fs_sendfile(int sd, intptr_t fd, size_t n) {
 		return -1;
 
 	return n;
-#elif __linux__ || __APPLE__
+#elif __linux__
+	ssize_t err;
+	off_t off, len;
+
+	for (off = 0, len = n; len != 0; len = n - off)
+		if ((err = sendfile(sd, fd, &off, len)) < 0)
+			return -1;
+
+	return off;
+#elif __APPLE__
 	ssize_t err, off;
 	off_t len;
 

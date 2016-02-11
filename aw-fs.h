@@ -40,10 +40,10 @@
 
 #if _WIN32
 # include <IO.h>
-# include <sys/types.h>
 #endif
 
 #include <sys/stat.h>
+#include <sys/types.h>
 
 #ifdef __cplusplus
 extern "C" {
