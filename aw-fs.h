@@ -24,8 +24,9 @@
 #ifndef AW_FS_H
 #define AW_FS_H
 
-#if __linux__ || __APPLE__
-# include <dirent.h>
+#if _WIN32
+# include <windows.h>
+# include <IO.h>
 #endif
 
 #if !_MSC_VER
@@ -33,13 +34,13 @@
 # include <stdint.h>
 #endif
 
+#if __linux__ || __APPLE__
+# include <dirent.h>
+#endif
+
 #if __APPLE__
 # include <sys/mount.h>
 # include <sys/vnode.h>
-#endif
-
-#if _WIN32
-# include <IO.h>
 #endif
 
 #include <sys/stat.h>
