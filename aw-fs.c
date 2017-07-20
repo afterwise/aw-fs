@@ -237,7 +237,9 @@ int fs_lock(intptr_t fd, int flags) {
 
 int fs_truncate(intptr_t fd, size_t n) {
 #if _WIN32
-	if (SetFilePointerEx((HANDLE) fd, n, NULL, FILE_BEGIN))
+	LARGE_INTEGER ln;
+	ln.QuadPart = n;
+	if (SetFilePointerEx((HANDLE) fd, ln, NULL, FILE_BEGIN))
 		if (SetEndOfFile((HANDLE) fd))
 			return 0;
 
@@ -370,14 +372,9 @@ bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 	if ((dir->dir = _findfirst(p, &buf->data[0])) < 0)
 		return false;
 
-	for (n = 1; n < FS_DIRENT_MAX;) {
-		if (!_findnext(dir->dir, &buf->data[n]))
+	for (n = 1; n < FS_DIRENT_MAX; ++n)
+		if (_findnext(dir->dir, &buf->data[n]) < 0)
 			break;
-
-		if (buf->data[n].name[0] != '.' || buf->data[n].name[1] != '.' ||
-				buf->data[n].name[2] != 0)
-			n++;
-	}
 
 	dir->data = buf->data;
 	dir->count = n;
@@ -426,25 +423,17 @@ bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf) {
 		return false;
 
 #if _WIN32
-	for (n = 0; n < FS_DIRENT_MAX;) {
-		if (!_findnext(dir->dir, &buf->data[n]))
+	for (n = 0; n < FS_DIRENT_MAX; ++n)
+		if (_findnext(dir->dir, &buf->data[n]) < 0)
 			break;
-
-		if (buf->data[n].name[0] != '.' || buf->data[n].name[1] != '.' ||
-				buf->data[n].name[2] != 0)
-			n++;
-	}
 
 	dir->data = buf->data;
 	dir->count = n;
-
 #elif __linux__ || __APPLE__
 # if __APPLE__
 	if (dir->fd > 0) {
 		unsigned basep, state;
-
 		n = FS_DIRENT_MAX;
-
 		if (getdirentriesattr(
 				dir->fd, &dir->attrlist, &buf->attrbuf, sizeof buf->attrbuf,
 				&n, &basep, &state, 0) <= 0)
@@ -453,15 +442,10 @@ bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf) {
 # endif
 	{
 		struct dirent *res;
-
-		for (n = 0; n < FS_DIRENT_MAX;) {
+		for (n = 0; n < FS_DIRENT_MAX; ++n)
 			if (readdir_r(dir->dir, &buf->dirent[n], &res) != 0 ||
 					res != &buf->dirent[n])
 				break;
-
-			if (res->d_name[0] != '.' || res->d_name[1] != '.' || res->d_name[2] != 0)
-				n++;
-		}
 	}
 
 	dir->dirent = buf->dirent;
