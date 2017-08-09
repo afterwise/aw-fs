@@ -163,6 +163,8 @@ ssize_t fs_sendfile(int sd, intptr_t fd, size_t n);
 
 /* dir ops */
 
+char *fs_getcwd(char *buf, size_t size);
+
 bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path);
 bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf);
 void fs_closedirwalk(fs_dir_t *dir);

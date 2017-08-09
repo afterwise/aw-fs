@@ -361,6 +361,14 @@ ssize_t fs_sendfile(int sd, intptr_t fd, size_t n) {
 #endif
 }
 
+char *fs_getcwd(char *buf, size_t size) {
+#if _WIN32
+	return _getcwd(buf, (int) size);
+#else
+	return getcwd(buf, size);
+#endif
+}
+
 bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 #if _WIN32
 	size_t np = strlen(path) + 3;
