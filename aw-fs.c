@@ -322,7 +322,7 @@ ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 		if (!WriteFile((HANDLE) fd, (const char *) p + off, len, &len, NULL))
 			return -1;
 
-	return -1;
+	return off;
 #elif __linux__ || __APPLE__
 	ssize_t err, off, len;
 
