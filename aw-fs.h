@@ -1,6 +1,6 @@
 
 /*
-   Copyright (c) 2014 Malte Hildingsson, malte (at) afterwi.se
+   Copyright (c) 2014-2021 Malte Hildingsson, malte (at) afterwi.se
 
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -29,10 +29,13 @@
 # include <IO.h>
 #endif
 
-#if !_MSC_VER
+#if !_MSC_VER || _MSC_VER >= 1800
 # include <stdbool.h>
+#endif
+#if !_MSC_VER || _MSC_VER >= 1600
 # include <stdint.h>
 #endif
+#include <stddef.h>
 
 #if __linux__ || __APPLE__
 # include <dirent.h>
@@ -54,6 +57,12 @@ extern "C" {
 # define FS_PATH_MAX (_MAX_PATH)
 #elif __linux__ || __APPLE__
 # define FS_PATH_MAX (PATH_MAX)
+#endif
+
+#if _MSC_VER
+typedef signed __int64 fs_ssize_t;
+#else
+typedef ssize_t fs_ssize_t;
 #endif
 
 #if _WIN32
@@ -157,9 +166,9 @@ enum {
 
 off_t fs_seek(intptr_t fd, off_t off, int whence);
 
-ssize_t fs_read(intptr_t fd, void *p, size_t n);
-ssize_t fs_write(intptr_t fd, const void *p, size_t n);
-ssize_t fs_sendfile(int sd, intptr_t fd, size_t n);
+fs_ssize_t fs_read(intptr_t fd, void *p, size_t n);
+fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n);
+fs_ssize_t fs_sendfile(int sd, intptr_t fd, size_t n);
 
 /* dir ops */
 

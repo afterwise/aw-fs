@@ -1,6 +1,6 @@
 
 /*
-   Copyright (c) 2014 Malte Hildingsson, malte (at) afterwi.se
+   Copyright (c) 2014-2021 Malte Hildingsson, malte (at) afterwi.se
 
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,7 @@
    THE SOFTWARE.
  */
 
-#ifndef _nofeatures
+#ifndef _fs_nofeatures
 # if _WIN32
 #  define WIN32_LEAN_AND_MEAN 1
 # elif __linux__
@@ -32,11 +32,12 @@
 # elif __APPLE__
 #  define _DARWIN_C_SOURCE 1
 # endif
-#endif /* _nofeatures */
+#endif /* _fs_nofeatures */
 
 #include "aw-fs.h"
 
 #if _WIN32
+# include <direct.h>
 # include <winsock.h>
 #elif __linux__ || __APPLE__
 # include <fcntl.h>
@@ -71,7 +72,7 @@ void *fs_map(struct fs_map *map, const char *path) {
 # if _WIN32
 	LARGE_INTEGER size;
 
-	if ((map->file = CreateFile(
+	if ((map->file = CreateFileA(
 			path, GENERIC_READ, FILE_SHARE_READ, NULL,
 			OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE)
 		return NULL;
@@ -87,8 +88,8 @@ void *fs_map(struct fs_map *map, const char *path) {
 		return NULL;
 	}
 
-	map->addr = MapViewOfFile(map->mapping, FILE_MAP_READ, 0, 0, size.QuadPart);
-	map->size = size.QuadPart;
+	map->addr = MapViewOfFile(map->mapping, FILE_MAP_READ, 0, 0, (size_t) size.QuadPart);
+	map->size = (size_t) size.QuadPart;
 
 	return map->addr;
 # elif __linux__ || __APPLE__
@@ -155,7 +156,7 @@ intptr_t fs_open(const char *path, int flags) {
 	if ((flags & FS_EXCL) != 0)
 		creat = CREATE_NEW;
 
-	if ((fd = CreateFile(
+	if ((fd = CreateFileA(
 			path, oflag, share, NULL, creat,
 			FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE)
 		return -1;
@@ -282,18 +283,18 @@ off_t fs_seek(intptr_t fd, off_t off, int whence) {
 	}
 
 #if _WIN32
-	return SetFilePointerEx((HANDLE) fd, loff, &loff, whence) ? loff.QuadPart : -1;
+	return SetFilePointerEx((HANDLE) fd, loff, &loff, whence) ? (off_t) loff.QuadPart : -1;
 #elif __linux__ || __APPLE__
 	return lseek(fd, off, whence);
 #endif
 }
 
-ssize_t fs_read(intptr_t fd, void *p, size_t n) {
+fs_ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 #if _WIN32
-	ssize_t off;
+	fs_ssize_t off;
 	unsigned long len;
 
-	for (off = 0, len = n; len != 0; off += len, len = n - off)
+	for (off = 0, len = n; len != 0; off += (fs_ssize_t) len, len = (size_t) (n - off))
 		if (!ReadFile((HANDLE) fd, (char *) p + off, len, &len, NULL))
 			return -1;
 		else if (len == 0)
@@ -313,12 +314,12 @@ ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 #endif
 }
 
-ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
+fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 #if _WIN32
-	ssize_t off;
+	fs_ssize_t off;
 	unsigned long len;
 
-	for (off = 0, len = n; len != 0; off += len, len = n - off)
+	for (off = 0, len = n; len != 0; off += (fs_ssize_t) len, len = (size_t) (n - off))
 		if (!WriteFile((HANDLE) fd, (const char *) p + off, len, &len, NULL))
 			return -1;
 
@@ -334,7 +335,7 @@ ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 #endif
 }
 
-ssize_t fs_sendfile(int sd, intptr_t fd, size_t n) {
+fs_ssize_t fs_sendfile(int sd, intptr_t fd, size_t n) {
 #if _WIN32
 	if (!TransmitFile(sd, (HANDLE) fd, n, 0, NULL, NULL, 0))
 		return -1;
@@ -372,7 +373,7 @@ char *fs_getcwd(char *buf, size_t size) {
 bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 #if _WIN32
 	size_t np = strlen(path) + 3;
-	char *p = alloca(np);
+	char *p = (char *) alloca(np);
 	unsigned n;
 
 	snprintf(p, np, "%s/*", path);
