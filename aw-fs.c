@@ -292,9 +292,9 @@ off_t fs_seek(intptr_t fd, off_t off, int whence) {
 fs_ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 #if _WIN32
 	fs_ssize_t off;
-	unsigned long len;
+	DWORD len;
 
-	for (off = 0, len = n; len != 0; off += (fs_ssize_t) len, len = (size_t) (n - off))
+	for (off = 0, len = (DWORD) n; len != 0; off += len, len = (DWORD) (n - off))
 		if (!ReadFile((HANDLE) fd, (char *) p + off, len, &len, NULL))
 			return -1;
 		else if (len == 0)
@@ -317,9 +317,9 @@ fs_ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 #if _WIN32
 	fs_ssize_t off;
-	unsigned long len;
+	DWORD len;
 
-	for (off = 0, len = n; len != 0; off += (fs_ssize_t) len, len = (size_t) (n - off))
+	for (off = 0, len = (DWORD) n; len != 0; off += len, len = (DWORD) (n - off))
 		if (!WriteFile((HANDLE) fd, (const char *) p + off, len, &len, NULL))
 			return -1;
 
@@ -337,7 +337,7 @@ fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 
 fs_ssize_t fs_sendfile(int sd, intptr_t fd, size_t n) {
 #if _WIN32
-	if (!TransmitFile(sd, (HANDLE) fd, n, 0, NULL, NULL, 0))
+	if (!TransmitFile(sd, (HANDLE) fd, (DWORD) n, 0, NULL, NULL, 0))
 		return -1;
 
 	return n;
