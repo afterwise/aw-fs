@@ -49,6 +49,21 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#if defined(_fs_dllexport)
+# if _MSC_VER
+#  define _fs_api extern __declspec(dllexport)
+# elif __GNUC__
+#  define _fs_api __attribute__((visibility("default"))) extern
+# endif
+#elif defined(_fs_dllimport)
+# if _MSC_VER
+#  define _fs_api extern __declspec(dllimport)
+# endif
+#endif
+#ifndef _fs_api
+# define _fs_api extern
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -116,7 +131,7 @@ typedef struct {
 
 /* status */
 
-int fs_stat(const char *path, fs_stat_t *st);
+_fs_api int fs_stat(const char *path, fs_stat_t *st);
 
 /* memory-mapping */
 
@@ -129,8 +144,8 @@ struct fs_map {
 # endif
 };
 
-void *fs_map(struct fs_map *map, const char *path);
-void fs_unmap(struct fs_map *map);
+_fs_api void *fs_map(struct fs_map *map, const char *path);
+_fs_api void fs_unmap(struct fs_map *map);
 
 /* input/output */
 
@@ -144,8 +159,8 @@ enum {
 	FS_EXCL = 0x20
 };
 
-intptr_t fs_open(const char *path, int flags);
-void fs_close(intptr_t fd);
+_fs_api intptr_t fs_open(const char *path, int flags);
+_fs_api void fs_close(intptr_t fd);
 
 enum {
 	FS_LOCK_SHARE = 0x0,
@@ -154,9 +169,9 @@ enum {
 	FS_LOCK_UNLOCK = 0x4
 };
 
-int fs_lock(intptr_t fd, int flags);
+_fs_api int fs_lock(intptr_t fd, int flags);
 
-int fs_truncate(intptr_t fd, size_t n);
+_fs_api int fs_truncate(intptr_t fd, size_t n);
 
 enum {
 	FS_SEEK_SET,
@@ -164,21 +179,21 @@ enum {
 	FS_SEEK_END
 };
 
-off_t fs_seek(intptr_t fd, off_t off, int whence);
+_fs_api off_t fs_seek(intptr_t fd, off_t off, int whence);
 
-fs_ssize_t fs_read(intptr_t fd, void *p, size_t n);
-fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n);
-fs_ssize_t fs_sendfile(int sd, intptr_t fd, size_t n);
+_fs_api fs_ssize_t fs_read(intptr_t fd, void *p, size_t n);
+_fs_api fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n);
+_fs_api fs_ssize_t fs_sendfile(int sd, intptr_t fd, size_t n);
 
 /* dir ops */
 
-char *fs_getcwd(char *buf, size_t size);
+_fs_api char *fs_getcwd(char *buf, size_t size);
 
-bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path);
-bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf);
-void fs_closedirwalk(fs_dir_t *dir);
+_fs_api bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path);
+_fs_api bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf);
+_fs_api void fs_closedirwalk(fs_dir_t *dir);
 
-bool fs_nextdirent(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir);
+_fs_api bool fs_nextdirent(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir);
 
 #ifdef __cplusplus
 } /* extern "C" */
