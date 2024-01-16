@@ -5,8 +5,8 @@ test: test.o ../libaw-fs.a
 	$(CC) $(LDFLAGS) -o $@ $^
 #	$(CC) $(LDFLAGS) -o $@ $^ -lmswsock
 
-%.o: %.c
-	$(CC) $(CFLAGS) -I.. -c $< -o $@
+%.o: %.x
+	$(CC) $(CFLAGS) -I.. -xc -c $< -o $@
 
 ../libaw-fs.a:
 	$(MAKE) -C..
