@@ -29,19 +29,19 @@
 # include <IO.h>
 #endif
 
-#if !_MSC_VER || _MSC_VER >= 1800
+#if !defined(_MSC_VER) || _MSC_VER >= 1800
 # include <stdbool.h>
 #endif
-#if !_MSC_VER || _MSC_VER >= 1600
+#if !defined(_MSC_VER) || _MSC_VER >= 1600
 # include <stdint.h>
 #endif
 #include <stddef.h>
 
-#if __linux__ || __APPLE__
+#if defined(__linux__) || defined(__APPLE__)
 # include <dirent.h>
 #endif
 
-#if __APPLE__
+#if defined(__APPLE__)
 # include <sys/mount.h>
 # include <sys/vnode.h>
 #endif
@@ -50,13 +50,13 @@
 #include <sys/types.h>
 
 #if defined(_fs_dllexport)
-# if _MSC_VER
+# if defined(_MSC_VER)
 #  define _fs_api extern __declspec(dllexport)
-# elif __GNUC__
+# elif defined(__GNUC__)
 #  define _fs_api __attribute__((visibility("default"))) extern
 # endif
 #elif defined(_fs_dllimport)
-# if _MSC_VER
+# if defined(_MSC_VER)
 #  define _fs_api extern __declspec(dllimport)
 # endif
 #endif
@@ -68,27 +68,27 @@
 extern "C" {
 #endif
 
-#if _WIN32
+#if defined(_WIN32)
 # define FS_PATH_MAX (_MAX_PATH)
-#elif __linux__ || __APPLE__
+#elif defined(__linux__) || defined(__APPLE__)
 # define FS_PATH_MAX (PATH_MAX)
 #endif
 
-#if _MSC_VER
+#if defined(_MSC_VER)
 typedef signed __int64 fs_ssize_t;
 #else
 typedef ssize_t fs_ssize_t;
 #endif
 
-#if _WIN32
+#if defined(_WIN32)
 typedef struct __stat64 fs_stat_t;
-#elif __linux__ || __APPLE__
+#elif defined(__linux__) || defined(__APPLE__)
 typedef struct stat fs_stat_t;
 #endif
 
 #define FS_DIRENT_MAX (64)
 
-#if __APPLE__
+#if defined(__APPLE__)
 struct fs_attr {
 	unsigned length;
 	attrreference_t name;
@@ -98,10 +98,10 @@ struct fs_attr {
 #endif
 
 typedef union {
-#if _WIN32
+#if defined(_WIN32)
 	struct _finddata_t data[FS_DIRENT_MAX];
-#elif __linux__ || __APPLE__
-# if __APPLE__
+#elif defined(__linux__) || defined(__APPLE__)
+# if defined(__APPLE__)
 	char attrbuf[FS_DIRENT_MAX * (sizeof (struct fs_attr) + 64)];
 # endif
 	struct dirent dirent[FS_DIRENT_MAX];
@@ -109,20 +109,20 @@ typedef union {
 } fs_dirbuf_t;
 
 typedef struct {
-#if _WIN32
+#if defined(_WIN32)
 	intptr_t dir;
 	struct _finddata_t *data;
-#elif __linux__ || __APPLE__
+#elif defined(__linux__) || defined(__APPLE__)
 	const char *path;
 	int fd;
 	DIR *dir;
 	union {
 		struct dirent *dirent;
-# if __APPLE__
+# if defined(__APPLE__)
 		struct fs_attr *attr;
 # endif
 	};
-# if __APPLE__
+# if defined(__APPLE__)
 	struct attrlist attrlist;
 # endif
 #endif
