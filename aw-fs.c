@@ -495,7 +495,7 @@ static void nextdata(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir
 		*name = data->name;
 
 	if (isdir != NULL)
-		*isdir = (data->attrib == _A_SUBDIR);
+		*isdir = (data->attrib & _A_SUBDIR) != 0;
 
 	if (mtime != NULL)
 		*mtime = data->time_write;
