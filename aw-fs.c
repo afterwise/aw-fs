@@ -1,6 +1,6 @@
 
 /*
-   Copyright (c) 2014-2021 Malte Hildingsson, malte (at) afterwi.se
+   Copyright (c) 2014-2025 Malte Hildingsson, malte (at) afterwi.se
 
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -38,16 +38,10 @@
 
 #if defined(_WIN32)
 # include <direct.h>
-# include <winsock.h>
 #elif defined(__linux__) || defined(__APPLE__)
 # include <fcntl.h>
 # include <sys/mman.h>
-# include <sys/socket.h>
 # include <unistd.h>
-#endif
-
-#if defined(__linux__)
-# include <sys/sendfile.h>
 #endif
 
 #if defined(_WIN32)
@@ -329,33 +323,6 @@ fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 
 	for (off = 0, len = n; len != 0; off += err > 0 ? err : 0, len = n - off)
 		if ((err = write(fd, (const char *) p + off, len)) < 0)
-			return -1;
-
-	return off;
-#endif
-}
-
-fs_ssize_t fs_sendfile(int sd, intptr_t fd, size_t n) {
-#if defined(_WIN32)
-	if (!TransmitFile(sd, (HANDLE) fd, (DWORD) n, 0, NULL, NULL, 0))
-		return -1;
-
-	return n;
-#elif defined(__linux__)
-	ssize_t err;
-	off_t off, len;
-
-	for (off = 0, len = n; len != 0; len = n - off)
-		if ((err = sendfile(sd, fd, &off, len)) < 0)
-			return -1;
-
-	return off;
-#elif defined(__APPLE__)
-	ssize_t err, off;
-	off_t len;
-
-	for (off = 0, len = n; len != 0; off += len, len = n - off)
-		if ((err = sendfile(fd, sd, off, &len, NULL, 0)) < 0)
 			return -1;
 
 	return off;
