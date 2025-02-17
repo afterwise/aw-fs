@@ -162,6 +162,8 @@ enum {
 _fs_api intptr_t fs_open(const char *path, int flags);
 _fs_api void fs_close(intptr_t fd);
 
+_fs_api bool fs_remove(const char* path);
+
 enum {
 	FS_LOCK_SHARE = 0x0,
 	FS_LOCK_EXCL = 0x1,

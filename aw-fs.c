@@ -189,6 +189,14 @@ void fs_close(intptr_t fd) {
 #endif
 }
 
+bool fs_remove(const char* path) {
+#if defined(_WIN32)
+	return !!DeleteFile(path);
+#elif defined(__linux__) || defined(__APPLE__)
+	return unlink(path) == 0;
+#endif
+}
+
 int fs_lock(intptr_t fd, int flags) {
 #if defined(_WIN32)
 	OVERLAPPED ol;
