@@ -191,7 +191,7 @@ void fs_close(intptr_t fd) {
 
 bool fs_remove(const char* path) {
 #if defined(_WIN32)
-	return !!DeleteFile(path);
+	return !!DeleteFileA(path);
 #elif defined(__linux__) || defined(__APPLE__)
 	return unlink(path) == 0;
 #endif
