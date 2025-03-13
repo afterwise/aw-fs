@@ -400,6 +400,11 @@ bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 #endif
 }
 
+#if defined(__GNUC__) && !defined(__clang__)
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf) {
 	unsigned n;
 
@@ -438,6 +443,10 @@ bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf) {
 
 	return n > 0;
 }
+
+#if defined(__GNUC__) && !defined(__clang__)
+# pragma GCC diagnostic pop
+#endif
 
 void fs_closedirwalk(fs_dir_t *dir) {
 #if defined(_WIN32)
