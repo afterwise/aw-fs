@@ -24,7 +24,7 @@
 #ifndef AW_FS_H
 #define AW_FS_H
 
-#if _WIN32
+#if defined(_WIN32)
 # include <windows.h>
 # include <IO.h>
 #endif
@@ -138,7 +138,7 @@ _fs_api int fs_stat(const char *path, fs_stat_t *st);
 struct fs_map {
 	void *addr;
 	size_t size;
-# if _WIN32
+# if defined(_WIN32)
 	HANDLE file;
 	HANDLE mapping;
 # endif
