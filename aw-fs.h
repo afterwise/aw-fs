@@ -114,7 +114,6 @@ typedef struct {
 	struct _finddata_t *data;
 #elif defined(__linux__) || defined(__APPLE__)
 	const char *path;
-	int fd;
 	DIR *dir;
 	union {
 		struct dirent *dirent;
