@@ -39,6 +39,8 @@
 
 #if defined(__linux__) || defined(__APPLE__)
 # include <dirent.h>
+#elif defined(__SCE__)
+# include <sys/dirent.h>
 #endif
 
 #if defined(__APPLE__)
@@ -70,7 +72,7 @@ extern "C" {
 
 #if defined(_WIN32)
 # define FS_PATH_MAX (_MAX_PATH)
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 # define FS_PATH_MAX (PATH_MAX)
 #endif
 
@@ -82,47 +84,31 @@ typedef ssize_t fs_ssize_t;
 
 #if defined(_WIN32)
 typedef struct __stat64 fs_stat_t;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 typedef struct stat fs_stat_t;
 #endif
 
 #define FS_DIRENT_MAX (64)
 
-#if defined(__APPLE__)
-struct fs_attr {
-	unsigned length;
-	attrreference_t name;
-	fsobj_type_t type;
-	struct timespec mtime;
-} __attribute__((aligned(4), packed));
-#endif
-
 typedef union {
 #if defined(_WIN32)
 	struct _finddata_t data[FS_DIRENT_MAX];
-#elif defined(__linux__) || defined(__APPLE__)
-# if defined(__APPLE__)
-	char attrbuf[FS_DIRENT_MAX * (sizeof (struct fs_attr) + 64)];
-# endif
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	struct dirent dirent[FS_DIRENT_MAX];
 #endif
 } fs_dirbuf_t;
 
 typedef struct {
+	const char *path;
 #if defined(_WIN32)
 	intptr_t dir;
 	struct _finddata_t *data;
-#elif defined(__linux__) || defined(__APPLE__)
-	const char *path;
-	DIR *dir;
-	union {
-		struct dirent *dirent;
-# if defined(__APPLE__)
-		struct fs_attr *attr;
-# endif
-	};
-# if defined(__APPLE__)
-	struct attrlist attrlist;
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+	struct dirent *dirent;
+# if defined(__linux__) || defined(__APPLE__)
+	DIR* dir;
+# elif defined(__SCE__)
+	int fd;
 # endif
 #endif
 	unsigned count;

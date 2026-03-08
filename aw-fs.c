@@ -38,7 +38,7 @@
 
 #if defined(_WIN32)
 # include <direct.h>
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 # include <fcntl.h>
 # include <sys/mman.h>
 # include <unistd.h>
@@ -46,8 +46,14 @@
 
 #if defined(_WIN32)
 # include <malloc.h>
+#elif defined(__SCE__)
+# include <stdlib.h>
 #else
 # include <alloca.h>
+#endif
+
+#if defined(__SCE__)
+# include <kernel.h>
 #endif
 
 #include <errno.h>
@@ -57,13 +63,13 @@
 int fs_stat(const char *path, fs_stat_t *st) {
 #if defined(_WIN32)
 	return _stat64(path, st);
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	return stat(path, st);
 #endif
 }
 
 void *fs_map(struct fs_map *map, const char *path) {
-# if defined(_WIN32)
+#if defined(_WIN32)
 	LARGE_INTEGER size;
 
 	if ((map->file = CreateFileA(
@@ -86,7 +92,7 @@ void *fs_map(struct fs_map *map, const char *path) {
 	map->size = (size_t) size.QuadPart;
 
 	return map->addr;
-# elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	struct stat st;
 	void *addr;
 	int fd;
@@ -106,17 +112,17 @@ void *fs_map(struct fs_map *map, const char *path) {
 	map->size = st.st_size;
 
 	return addr;
-# endif
+#endif
 }
 
 void fs_unmap(struct fs_map *map) {
-# if defined(_WIN32)
+#if defined(_WIN32)
 	UnmapViewOfFile(map->addr);
 	CloseHandle(map->mapping);
 	CloseHandle(map->file);
-# elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	munmap(map->addr, map->size);
-# endif
+#endif
 }
 
 intptr_t fs_open(const char *path, int flags) {
@@ -156,7 +162,7 @@ intptr_t fs_open(const char *path, int flags) {
 		return -1;
 
 	return (intptr_t) fd;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	int oflag = O_RDONLY;
 
 	if ((flags & FS_RDWR) != 0)
@@ -184,7 +190,7 @@ intptr_t fs_open(const char *path, int flags) {
 void fs_close(intptr_t fd) {
 #if defined(_WIN32)
 	CloseHandle((HANDLE) fd);
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	close(fd);
 #endif
 }
@@ -192,7 +198,7 @@ void fs_close(intptr_t fd) {
 bool fs_remove(const char* path) {
 #if defined(_WIN32)
 	return !!DeleteFileA(path);
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	return unlink(path) == 0;
 #endif
 }
@@ -217,7 +223,7 @@ int fs_lock(intptr_t fd, int flags) {
 		return -1;
 
 	return 0;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	struct flock fl;
 
 	if ((flags & FS_LOCK_UNLOCK) != 0)
@@ -247,7 +253,7 @@ int fs_truncate(intptr_t fd, size_t n) {
 			return 0;
 
 	return -1;
-#else
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	return ftruncate(fd, n);
 #endif
 }
@@ -262,7 +268,7 @@ off_t fs_seek(intptr_t fd, off_t off, int whence) {
 	case FS_SEEK_SET:
 #if defined(_WIN32)
 		whence = FILE_BEGIN;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 		whence = SEEK_SET;
 #endif
 		break;
@@ -270,7 +276,7 @@ off_t fs_seek(intptr_t fd, off_t off, int whence) {
 	case FS_SEEK_CUR:
 #if defined(_WIN32)
 		whence = FILE_CURRENT;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 		whence = SEEK_CUR;
 #endif
 		break;
@@ -278,7 +284,7 @@ off_t fs_seek(intptr_t fd, off_t off, int whence) {
 	case FS_SEEK_END:
 #if defined(_WIN32)
 		whence = FILE_END;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 		whence = SEEK_END;
 #endif
 		break;
@@ -286,7 +292,7 @@ off_t fs_seek(intptr_t fd, off_t off, int whence) {
 
 #if defined(_WIN32)
 	return SetFilePointerEx((HANDLE) fd, loff, &loff, whence) ? (off_t) loff.QuadPart : -1;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	return lseek(fd, off, whence);
 #endif
 }
@@ -303,7 +309,7 @@ fs_ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 			break;
 
 	return off;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	ssize_t err, off, len;
 
 	for (off = 0, len = n; len != 0; off += err > 0 ? err : 0, len = n - off)
@@ -326,7 +332,7 @@ fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 			return -1;
 
 	return off;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	ssize_t err, off, len;
 
 	for (off = 0, len = n; len != 0; off += err > 0 ? err : 0, len = n - off)
@@ -340,12 +346,18 @@ fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 char *fs_getcwd(char *buf, size_t size) {
 #if defined(_WIN32)
 	return _getcwd(buf, (int) size);
-#else
+#elif defined(__linux__) || defined(__APPLE__)
 	return getcwd(buf, size);
+#elif defined(__SCE__)
+	snprintf(buf, sizeof buf, "%s", "/app0/");
+	return buf;
 #endif
 }
 
 bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
+	memset(dir, 0, sizeof *dir);
+	dir->path = path;
+
 #if defined(_WIN32)
 	size_t np = strlen(path) + 3;
 	char *p = (char *) alloca(np);
@@ -365,10 +377,16 @@ bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 
 	return true;
 #elif defined(__linux__) || defined(__APPLE__)
-	memset(dir, 0, sizeof *dir);
-	dir->path = path;
-
 	if ((dir->dir = opendir(path)) == NULL)
+		return false;
+
+	if (fs_bufferdirwalk(dir, buf))
+		return true;
+
+	fs_closedirwalk(dir);
+	return false;
+#elif defined(__SCE__)
+	if ((dir->fd = sceKernelOpen(path, SCE_KERNEL_O_DIRECTORY, 0)) < 0)
 		return false;
 
 	if (fs_bufferdirwalk(dir, buf))
@@ -379,13 +397,13 @@ bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 #endif
 }
 
-#if defined(__GNUC__) && !defined(__clang__)
+#if defined(__GNUC__)
 # pragma GCC diagnostic push
 # pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
 bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf) {
-	unsigned n;
+	int n;
 
 	if (dir->count > 0 && dir->count < FS_DIRENT_MAX)
 		return false;
@@ -406,12 +424,19 @@ bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf) {
 
 	dir->dirent = buf->dirent;
 	dir->count = n;
+#elif defined(__SCE__)
+	n = sceKernelGetdents(dir->fd, (void*) buf->dirent, (int) sizeof buf->dirent);
+	if (n > 0)
+		n /= (int) sizeof buf->dirent[0];
+
+	dir->dirent = buf->dirent;
+	dir->count = n;
 #endif
 
 	return n > 0;
 }
 
-#if defined(__GNUC__) && !defined(__clang__)
+#if defined(__GNUC__)
 # pragma GCC diagnostic pop
 #endif
 
@@ -420,10 +445,12 @@ void fs_closedirwalk(fs_dir_t *dir) {
 	_findclose(dir->dir);
 #elif defined(__linux__) || defined(__APPLE__)
 	closedir(dir->dir);
+#elif defined(__SCE__)
+	sceKernelClose(dir->fd);
 #endif
 }
 
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 static int statdirent(struct stat *st, const char *dir, const char *ent) {
 	size_t np = strlen(dir) + strlen(ent) + 2;
 	char *p = alloca(np);
@@ -450,7 +477,7 @@ static void nextdata(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir
 }
 #endif
 
-#if defined(__APPLE__) || defined(__linux__)
+#if defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 static void nextdirent(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir) {
 	if (name != NULL)
 		*name = dir->dirent->d_name;
@@ -477,7 +504,7 @@ bool fs_nextdirent(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir) 
 	if (dir->count > 0) {
 #if defined(_WIN32)
 		nextdata(name, isdir, mtime, dir);
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 		nextdirent(name, isdir, mtime, dir);
 #endif
 
