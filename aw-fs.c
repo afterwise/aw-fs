@@ -349,7 +349,7 @@ char *fs_getcwd(char *buf, size_t size) {
 #elif defined(__linux__) || defined(__APPLE__)
 	return getcwd(buf, size);
 #elif defined(__SCE__)
-	strncpy_s(buf, size, "", 0);
+	strcpy_s(buf, size, "");
 	return buf;
 #endif
 }
