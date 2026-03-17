@@ -46,9 +46,7 @@
 
 #if defined(_WIN32)
 # include <malloc.h>
-#elif defined(__SCE__)
-# include <stdlib.h>
-#else
+#elif !defined(__SCE__)
 # include <alloca.h>
 #endif
 
@@ -57,12 +55,18 @@
 #endif
 
 #include <errno.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
 int fs_stat(const char *path, fs_stat_t *st) {
 #if defined(_WIN32)
-	return _stat64(path, st);
+	size_t len = strlen(path) + 1;
+	wchar_t* tmp = calloc(len, sizeof(wchar_t));
+	mbstowcs_s(&len, tmp, len, path, _TRUNCATE);
+	int err = _wstat64(tmp, st);
+	free(tmp);
+	return err;
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	return stat(path, st);
 #endif
@@ -72,25 +76,34 @@ void *fs_map(struct fs_map *map, const char *path) {
 #if defined(_WIN32)
 	LARGE_INTEGER size;
 
-	if ((map->file = CreateFileA(
-			path, GENERIC_READ, FILE_SHARE_READ, NULL,
-			OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE)
+	size_t len = strlen(path) + 1;
+	wchar_t* tmp = calloc(len, sizeof(wchar_t));
+	mbstowcs_s(&len, tmp, len, path, _TRUNCATE);
+
+	if ((map->file = CreateFileW(
+			tmp, GENERIC_READ, FILE_SHARE_READ, NULL,
+			OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE) {
+		free(tmp);
 		return NULL;
+	}
 
 	if (!GetFileSizeEx(map->file, &size)) {
 		CloseHandle(map->file);
+		free(tmp);
 		return NULL;
 	}
 
 	if ((map->mapping = CreateFileMapping(
 			map->file, NULL, PAGE_READONLY, 0, 0, NULL)) == INVALID_HANDLE_VALUE) {
 		CloseHandle(map->file);
+		free(tmp);
 		return NULL;
 	}
 
 	map->addr = MapViewOfFile(map->mapping, FILE_MAP_READ, 0, 0, (size_t) size.QuadPart);
 	map->size = (size_t) size.QuadPart;
 
+	free(tmp);
 	return map->addr;
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	struct stat st;
@@ -132,6 +145,10 @@ intptr_t fs_open(const char *path, int flags) {
 	int creat = OPEN_EXISTING;
 	int share = FILE_SHARE_READ | FILE_SHARE_DELETE;
 
+	size_t len = strlen(path) + 1;
+	wchar_t* tmp = calloc(len, sizeof(wchar_t));
+	mbstowcs_s(&len, tmp, len, path, _TRUNCATE);
+
 	if ((flags & FS_RDWR) != 0) {
 		oflag |= GENERIC_WRITE;
 		share = 0;
@@ -156,11 +173,14 @@ intptr_t fs_open(const char *path, int flags) {
 	if ((flags & FS_EXCL) != 0)
 		creat = CREATE_NEW;
 
-	if ((fd = CreateFileA(
-			path, oflag, share, NULL, creat,
-			FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE)
+	if ((fd = CreateFileW(
+			tmp, oflag, share, NULL, creat,
+			FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE) {
+		free(tmp);
 		return -1;
+	}
 
+	free(tmp);
 	return (intptr_t) fd;
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	int oflag = O_RDONLY;
@@ -345,7 +365,11 @@ fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 
 char *fs_getcwd(char *buf, size_t size) {
 #if defined(_WIN32)
-	return _getcwd(buf, (int) size);
+	wchar_t* tmp = calloc(size, sizeof(wchar_t));
+	_wgetcwd(tmp, (int) size);
+	wcstombs_s(&size, buf, size, tmp, _TRUNCATE);
+	free(tmp);
+	return buf;
 #elif defined(__linux__) || defined(__APPLE__)
 	return getcwd(buf, size);
 #elif defined(__SCE__)
@@ -359,17 +383,18 @@ bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 	dir->path = path;
 
 #if defined(_WIN32)
-	size_t np = strlen(path) + 3;
-	char *p = (char *) alloca(np);
 	unsigned n;
+	size_t len = strlen(path) + 3;
+	wchar_t* tmp = calloc(len, sizeof(wchar_t));
+	mbstowcs_s(&len, tmp, len, path, _TRUNCATE);
+	wcscat_s(tmp, len, L"/*");
 
-	snprintf(p, np, "%s/*", path);
-
-	if ((dir->dir = _findfirst(p, &buf->data[0])) < 0)
+	dir->cur = NULL;
+	if ((dir->dir = _wfindfirst(tmp, &buf->data[0])) < 0)
 		return false;
 
 	for (n = 1; n < FS_DIRENT_MAX; ++n)
-		if (_findnext(dir->dir, &buf->data[n]) < 0)
+		if (_wfindnext(dir->dir, &buf->data[n]) < 0)
 			break;
 
 	dir->data = buf->data;
@@ -410,7 +435,7 @@ bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf) {
 
 #if defined(_WIN32)
 	for (n = 0; n < FS_DIRENT_MAX; ++n)
-		if (_findnext(dir->dir, &buf->data[n]) < 0)
+		if (_wfindnext(dir->dir, &buf->data[n]) < 0)
 			break;
 
 	dir->data = buf->data;
@@ -442,6 +467,8 @@ bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf) {
 
 void fs_closedirwalk(fs_dir_t *dir) {
 #if defined(_WIN32)
+	if (dir->cur != NULL)
+		free(dir->cur);
 	_findclose(dir->dir);
 #elif defined(__linux__) || defined(__APPLE__)
 	closedir(dir->dir);
@@ -462,10 +489,17 @@ static int statdirent(struct stat *st, const char *dir, const char *ent) {
 
 #if defined(_WIN32)
 static void nextdata(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir) {
-	struct _finddata_t *data = dir->data;
+	struct _wfinddata_t *data = dir->data;
+	size_t len;
 
-	if (name != NULL)
-		*name = data->name;
+	if (name != NULL) {
+		if (dir->cur != NULL)
+			free(dir->cur);
+		len = wcslen(data->name) + 1;
+		dir->cur = calloc(len, sizeof(char));
+		wcstombs_s(&len, dir->cur, len, data->name, _TRUNCATE);
+		*name = dir->cur;
+	}
 
 	if (isdir != NULL)
 		*isdir = (data->attrib & _A_SUBDIR) != 0;

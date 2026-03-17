@@ -92,7 +92,7 @@ typedef struct stat fs_stat_t;
 
 typedef union {
 #if defined(_WIN32)
-	struct _finddata_t data[FS_DIRENT_MAX];
+	struct _wfinddata_t data[FS_DIRENT_MAX];
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	struct dirent dirent[FS_DIRENT_MAX];
 #endif
@@ -102,7 +102,8 @@ typedef struct {
 	const char *path;
 #if defined(_WIN32)
 	intptr_t dir;
-	struct _finddata_t *data;
+	struct _wfinddata_t *data;
+	char* cur;
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
 	struct dirent *dirent;
 # if defined(__linux__) || defined(__APPLE__)
