@@ -63,7 +63,8 @@ int fs_stat(const char *path, fs_stat_t *st) {
 #if defined(_WIN32)
 	size_t len = strlen(path) + 1;
 	wchar_t* tmp = calloc(len, sizeof(wchar_t));
-	mbstowcs_s(&len, tmp, len, path, _TRUNCATE);
+	size_t tmplen;
+	mbstowcs_s(&tmplen, tmp, len, path, _TRUNCATE);
 	int err = _wstat64(tmp, st);
 	free(tmp);
 	return err;
@@ -78,7 +79,8 @@ void *fs_map(struct fs_map *map, const char *path) {
 
 	size_t len = strlen(path) + 1;
 	wchar_t* tmp = calloc(len, sizeof(wchar_t));
-	mbstowcs_s(&len, tmp, len, path, _TRUNCATE);
+	size_t tmplen;
+	mbstowcs_s(&tmplen, tmp, len, path, _TRUNCATE);
 
 	if ((map->file = CreateFileW(
 			tmp, GENERIC_READ, FILE_SHARE_READ, NULL,
@@ -147,7 +149,8 @@ intptr_t fs_open(const char *path, int flags) {
 
 	size_t len = strlen(path) + 1;
 	wchar_t* tmp = calloc(len, sizeof(wchar_t));
-	mbstowcs_s(&len, tmp, len, path, _TRUNCATE);
+	size_t tmplen;
+	mbstowcs_s(&tmplen, tmp, len, path, _TRUNCATE);
 
 	if ((flags & FS_RDWR) != 0) {
 		oflag |= GENERIC_WRITE;
@@ -366,8 +369,9 @@ fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 char *fs_getcwd(char *buf, size_t size) {
 #if defined(_WIN32)
 	wchar_t* tmp = calloc(size, sizeof(wchar_t));
+	size_t tmplen;
 	_wgetcwd(tmp, (int) size);
-	wcstombs_s(&size, buf, size, tmp, _TRUNCATE);
+	wcstombs_s(&tmplen, buf, size, tmp, _TRUNCATE);
 	free(tmp);
 	return buf;
 #elif defined(__linux__) || defined(__APPLE__)
@@ -386,7 +390,8 @@ bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 	unsigned n;
 	size_t len = strlen(path) + 3;
 	wchar_t* tmp = calloc(len, sizeof(wchar_t));
-	mbstowcs_s(&len, tmp, len, path, _TRUNCATE);
+	size_t tmplen;
+	mbstowcs_s(&tmplen, tmp, len, path, _TRUNCATE);
 	wcscat_s(tmp, len, L"/*");
 
 	dir->cur = NULL;
