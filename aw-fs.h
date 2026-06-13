@@ -37,7 +37,7 @@
 #endif
 #include <stddef.h>
 
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(__NINTENDO__)
 # include <dirent.h>
 #elif defined(__SCE__)
 # include <sys/dirent.h>
@@ -72,7 +72,7 @@ extern "C" {
 
 #if defined(_WIN32)
 # define FS_PATH_MAX (_MAX_PATH)
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 # define FS_PATH_MAX (PATH_MAX)
 #endif
 
@@ -84,7 +84,7 @@ typedef ssize_t fs_ssize_t;
 
 #if defined(_WIN32)
 typedef struct __stat64 fs_stat_t;
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 typedef struct stat fs_stat_t;
 #endif
 
@@ -93,7 +93,7 @@ typedef struct stat fs_stat_t;
 typedef union {
 #if defined(_WIN32)
 	struct _wfinddata_t data[FS_DIRENT_MAX];
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	struct dirent dirent[FS_DIRENT_MAX];
 #endif
 } fs_dirbuf_t;
@@ -104,9 +104,9 @@ typedef struct {
 	intptr_t dir;
 	struct _wfinddata_t *data;
 	char* cur;
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	struct dirent *dirent;
-# if defined(__linux__) || defined(__APPLE__)
+# if defined(__linux__) || defined(__APPLE__) || defined(__NINTENDO__)
 	DIR* dir;
 # elif defined(__SCE__)
 	int fd;

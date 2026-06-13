@@ -24,7 +24,7 @@
 #ifndef _fs_nofeatures
 # if defined(_WIN32)
 #  define WIN32_LEAN_AND_MEAN 1
-# elif defined(__linux__)
+# elif defined(__linux__) || defined(__NINTENDO__)
 #  define _BSD_SOURCE 1
 #  define _DEFAULT_SOURCE 1
 #  define _POSIX_C_SOURCE 200809L
@@ -38,7 +38,7 @@
 
 #if defined(_WIN32)
 # include <direct.h>
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 # include <fcntl.h>
 # include <sys/mman.h>
 # include <unistd.h>
@@ -68,7 +68,7 @@ int fs_stat(const char *path, fs_stat_t *st) {
 	int err = _wstat64(tmp, st);
 	free(tmp);
 	return err;
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	return stat(path, st);
 #endif
 }
@@ -107,7 +107,7 @@ void *fs_map(struct fs_map *map, const char *path) {
 
 	free(tmp);
 	return map->addr;
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	struct stat st;
 	void *addr;
 	int fd;
@@ -135,7 +135,7 @@ void fs_unmap(struct fs_map *map) {
 	UnmapViewOfFile(map->addr);
 	CloseHandle(map->mapping);
 	CloseHandle(map->file);
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	munmap(map->addr, map->size);
 #endif
 }
@@ -185,7 +185,7 @@ intptr_t fs_open(const char *path, int flags) {
 
 	free(tmp);
 	return (intptr_t) fd;
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	int oflag = O_RDONLY;
 
 	if ((flags & FS_RDWR) != 0)
@@ -213,7 +213,7 @@ intptr_t fs_open(const char *path, int flags) {
 void fs_close(intptr_t fd) {
 #if defined(_WIN32)
 	CloseHandle((HANDLE) fd);
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	close(fd);
 #endif
 }
@@ -221,7 +221,7 @@ void fs_close(intptr_t fd) {
 bool fs_remove(const char* path) {
 #if defined(_WIN32)
 	return !!DeleteFileA(path);
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	return unlink(path) == 0;
 #endif
 }
@@ -246,7 +246,7 @@ int fs_lock(intptr_t fd, int flags) {
 		return -1;
 
 	return 0;
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	struct flock fl;
 
 	if ((flags & FS_LOCK_UNLOCK) != 0)
@@ -276,7 +276,7 @@ int fs_truncate(intptr_t fd, size_t n) {
 			return 0;
 
 	return -1;
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	return ftruncate(fd, n);
 #endif
 }
@@ -291,7 +291,7 @@ off_t fs_seek(intptr_t fd, off_t off, int whence) {
 	case FS_SEEK_SET:
 #if defined(_WIN32)
 		whence = FILE_BEGIN;
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 		whence = SEEK_SET;
 #endif
 		break;
@@ -299,7 +299,7 @@ off_t fs_seek(intptr_t fd, off_t off, int whence) {
 	case FS_SEEK_CUR:
 #if defined(_WIN32)
 		whence = FILE_CURRENT;
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 		whence = SEEK_CUR;
 #endif
 		break;
@@ -307,7 +307,7 @@ off_t fs_seek(intptr_t fd, off_t off, int whence) {
 	case FS_SEEK_END:
 #if defined(_WIN32)
 		whence = FILE_END;
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 		whence = SEEK_END;
 #endif
 		break;
@@ -315,7 +315,7 @@ off_t fs_seek(intptr_t fd, off_t off, int whence) {
 
 #if defined(_WIN32)
 	return SetFilePointerEx((HANDLE) fd, loff, &loff, whence) ? (off_t) loff.QuadPart : -1;
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	return lseek(fd, off, whence);
 #endif
 }
@@ -332,7 +332,7 @@ fs_ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 			break;
 
 	return off;
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	ssize_t err, off, len;
 
 	for (off = 0, len = n; len != 0; off += err > 0 ? err : 0, len = n - off)
@@ -355,7 +355,7 @@ fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 			return -1;
 
 	return off;
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	ssize_t err, off, len;
 
 	for (off = 0, len = n; len != 0; off += err > 0 ? err : 0, len = n - off)
@@ -374,7 +374,7 @@ char *fs_getcwd(char *buf, size_t size) {
 	wcstombs_s(&tmplen, buf, size, tmp, _TRUNCATE);
 	free(tmp);
 	return buf;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__NINTENDO__)
 	return getcwd(buf, size);
 #elif defined(__SCE__)
 	strcpy_s(buf, size, "");
@@ -406,7 +406,7 @@ bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 	dir->count = n;
 
 	return true;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__NINTENDO__)
 	if ((dir->dir = opendir(path)) == NULL)
 		return false;
 
@@ -445,7 +445,7 @@ bool fs_bufferdirwalk(fs_dir_t *dir, fs_dirbuf_t *buf) {
 
 	dir->data = buf->data;
 	dir->count = n;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__NINTENDO__)
 	struct dirent *res;
 	for (n = 0; n < FS_DIRENT_MAX; ++n)
 		if (readdir_r(dir->dir, &buf->dirent[n], &res) != 0 ||
@@ -475,14 +475,14 @@ void fs_closedirwalk(fs_dir_t *dir) {
 	if (dir->cur != NULL)
 		free(dir->cur);
 	_findclose(dir->dir);
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__NINTENDO__)
 	closedir(dir->dir);
 #elif defined(__SCE__)
 	sceKernelClose(dir->fd);
 #endif
 }
 
-#if defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 static int statdirent(struct stat *st, const char *dir, const char *ent) {
 	size_t np = strlen(dir) + strlen(ent) + 2;
 	char *p = alloca(np);
@@ -516,7 +516,7 @@ static void nextdata(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir
 }
 #endif
 
-#if defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 static void nextdirent(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir) {
 	if (name != NULL)
 		*name = dir->dirent->d_name;
@@ -543,7 +543,7 @@ bool fs_nextdirent(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir) 
 	if (dir->count > 0) {
 #if defined(_WIN32)
 		nextdata(name, isdir, mtime, dir);
-#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 		nextdirent(name, isdir, mtime, dir);
 #endif
 
