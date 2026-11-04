@@ -534,11 +534,13 @@ static void nextdirent(const char **name, int *isdir, time_t *mtime, fs_dir_t *d
 	if (mtime != NULL) {
 		struct stat st;
 
-		statdirent(&st, dir->path, dir->dirent->d_name);
+		if (statdirent(&st, dir->path, dir->dirent->d_name) < 0)
+			*mtime = 0;
+		else
 # if defined(__APPLE__)
-		*mtime = st.st_mtimespec.tv_sec;
+			*mtime = st.st_mtimespec.tv_sec;
 # else
-		*mtime = st.st_mtime;
+			*mtime = st.st_mtime;
 # endif
 	}
 
