@@ -23,22 +23,22 @@ int main(int argc, char *argv[]) {
 	(void) argc;
 	(void) argv;
 
-	if (fs_stat("test/test.c", &st) < 0)
+	if (fs_stat("test/test.x", &st) < 0)
 		return perror("fs_stat"), 1;
-	printf("stat test/test.c -> size=%ld\n", (unsigned long) st.st_size);
+	printf("stat test/test.x -> size=%ld\n", (unsigned long) st.st_size);
 
 	size = st.st_size;
 	text = malloc(size + 1);
 	text2 = malloc(size + 1);
 
-	if (fs_map(&map, "test/test.c") == NULL)
+	if (fs_map(&map, "test/test.x") == NULL)
 		return perror("fs_map"), 1;
 	memcpy(text, map.addr, size);
 	text[size] = 0;
 	printf("<<<%s>>>\n", text);
 	fs_unmap(&map);
 
-	if ((fd = fs_open("test/test.c", FS_RDONLY)) < 0)
+	if ((fd = fs_open("test/test.x", FS_RDONLY)) < 0)
 		return perror("fs_open"), 1;
 	fs_read(fd, text2, size);
 	text2[size] = 0;
