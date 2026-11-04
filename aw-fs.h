@@ -179,6 +179,7 @@ enum {
 
 _fs_api fs_off_t fs_seek(intptr_t fd, fs_off_t off, int whence);
 
+/* return the number of bytes transferred, or -1 if an error came before any */
 _fs_api fs_ssize_t fs_read(intptr_t fd, void *p, size_t n);
 _fs_api fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n);
 

@@ -363,7 +363,7 @@ fs_ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 
 	for (off = 0; off < n; off += len)
 		if (!ReadFile((HANDLE) fd, (char *) p + off, (DWORD) (n - off < FS_IO_CHUNK ? n - off : FS_IO_CHUNK), &len, NULL))
-			return -1;
+			return off > 0 ? (fs_ssize_t) off : -1;
 		else if (len == 0)
 			break;
 
@@ -375,7 +375,7 @@ fs_ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 		if ((err = read(fd, (char *) p + off, len)) == 0)
 			break;
 		else if (err < 0 && errno != EINTR)
-			return -1;
+			return off > 0 ? off : -1;
 
 	return off;
 #endif
@@ -388,7 +388,7 @@ fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 
 	for (off = 0; off < n; off += len)
 		if (!WriteFile((HANDLE) fd, (const char *) p + off, (DWORD) (n - off < FS_IO_CHUNK ? n - off : FS_IO_CHUNK), &len, NULL))
-			return -1;
+			return off > 0 ? (fs_ssize_t) off : -1;
 		else if (len == 0)
 			break;
 
@@ -398,7 +398,7 @@ fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 
 	for (off = 0, len = n; len != 0; off += err > 0 ? err : 0, len = n - off)
 		if ((err = write(fd, (const char *) p + off, len)) < 0 && errno != EINTR)
-			return -1;
+			return off > 0 ? off : -1;
 
 	return off;
 #endif
