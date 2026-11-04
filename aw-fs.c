@@ -314,7 +314,7 @@ int fs_truncate(intptr_t fd, size_t n) {
 #endif
 }
 
-off_t fs_seek(intptr_t fd, off_t off, int whence) {
+fs_off_t fs_seek(intptr_t fd, fs_off_t off, int whence) {
 #if defined(_WIN32)
 	LARGE_INTEGER loff;
 	loff.QuadPart = off;
@@ -347,7 +347,7 @@ off_t fs_seek(intptr_t fd, off_t off, int whence) {
 	}
 
 #if defined(_WIN32)
-	return SetFilePointerEx((HANDLE) fd, loff, &loff, whence) ? (off_t) loff.QuadPart : -1;
+	return SetFilePointerEx((HANDLE) fd, loff, &loff, whence) ? (fs_off_t) loff.QuadPart : -1;
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	return lseek(fd, off, whence);
 #endif

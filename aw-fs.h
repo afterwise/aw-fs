@@ -82,6 +82,13 @@ typedef signed __int64 fs_ssize_t;
 typedef ssize_t fs_ssize_t;
 #endif
 
+/* off_t is 32 bits on Windows */
+#if defined(_WIN32)
+typedef int64_t fs_off_t;
+#else
+typedef off_t fs_off_t;
+#endif
+
 #if defined(_WIN32)
 typedef struct __stat64 fs_stat_t;
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
@@ -170,7 +177,7 @@ enum {
 	FS_SEEK_END
 };
 
-_fs_api off_t fs_seek(intptr_t fd, off_t off, int whence);
+_fs_api fs_off_t fs_seek(intptr_t fd, fs_off_t off, int whence);
 
 _fs_api fs_ssize_t fs_read(intptr_t fd, void *p, size_t n);
 _fs_api fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n);
