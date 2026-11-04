@@ -380,10 +380,11 @@ char *fs_getcwd(char *buf, size_t size) {
 #if defined(_WIN32)
 	wchar_t* tmp = calloc(size, sizeof(wchar_t));
 	size_t tmplen;
-	_wgetcwd(tmp, (int) size);
-	wcstombs_s(&tmplen, buf, size, tmp, _TRUNCATE);
+	char *res = NULL;
+	if (tmp != NULL && _wgetcwd(tmp, (int) size) != NULL && wcstombs_s(&tmplen, buf, size, tmp, _TRUNCATE) == 0)
+		res = buf;
 	free(tmp);
-	return buf;
+	return res;
 #elif defined(__linux__) || defined(__APPLE__) || defined(__NINTENDO__)
 	return getcwd(buf, size);
 #elif defined(__SCE__)
