@@ -82,35 +82,34 @@ void *fs_map(struct fs_map *map, const char *path) {
 	size_t tmplen;
 	mbstowcs_s(&tmplen, tmp, len, path, _TRUNCATE);
 
-	if ((map->file = CreateFileW(
-			tmp, GENERIC_READ, FILE_SHARE_READ, NULL,
-			OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE) {
-		free(tmp);
-		return NULL;
-	}
+	memset(map, 0, sizeof *map);
 
-	if (!GetFileSizeEx(map->file, &size)) {
-		CloseHandle(map->file);
-		free(tmp);
-		return NULL;
-	}
-
-	if ((map->mapping = CreateFileMapping(
-			map->file, NULL, PAGE_READONLY, 0, 0, NULL)) == INVALID_HANDLE_VALUE) {
-		CloseHandle(map->file);
-		free(tmp);
-		return NULL;
-	}
-
-	map->addr = MapViewOfFile(map->mapping, FILE_MAP_READ, 0, 0, (size_t) size.QuadPart);
-	map->size = (size_t) size.QuadPart;
-
+	map->file = CreateFileW(
+		tmp, GENERIC_READ, FILE_SHARE_READ, NULL,
+		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	free(tmp);
+
+	if (map->file == INVALID_HANDLE_VALUE) {
+		map->file = NULL;
+		return NULL;
+	}
+
+	/* empty files cannot be mapped */
+	if (!GetFileSizeEx(map->file, &size) ||
+			(map->mapping = CreateFileMapping(map->file, NULL, PAGE_READONLY, 0, 0, NULL)) == NULL ||
+			(map->addr = MapViewOfFile(map->mapping, FILE_MAP_READ, 0, 0, (size_t) size.QuadPart)) == NULL) {
+		fs_unmap(map);
+		return NULL;
+	}
+
+	map->size = (size_t) size.QuadPart;
 	return map->addr;
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	struct stat st;
 	void *addr;
 	int fd;
+
+	memset(map, 0, sizeof *map);
 
 	if ((fd = open(path, O_RDONLY)) < 0)
 		return NULL;
@@ -132,12 +131,17 @@ void *fs_map(struct fs_map *map, const char *path) {
 
 void fs_unmap(struct fs_map *map) {
 #if defined(_WIN32)
-	UnmapViewOfFile(map->addr);
-	CloseHandle(map->mapping);
-	CloseHandle(map->file);
+	if (map->addr != NULL)
+		UnmapViewOfFile(map->addr);
+	if (map->mapping != NULL)
+		CloseHandle(map->mapping);
+	if (map->file != NULL)
+		CloseHandle(map->file);
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
-	munmap(map->addr, map->size);
+	if (map->addr != NULL)
+		munmap(map->addr, map->size);
 #endif
+	memset(map, 0, sizeof *map);
 }
 
 intptr_t fs_open(const char *path, int flags) {

@@ -130,6 +130,7 @@ struct fs_map {
 # endif
 };
 
+/* on failure the map is left empty, and unmapping an empty map does nothing */
 _fs_api void *fs_map(struct fs_map *map, const char *path);
 _fs_api void fs_unmap(struct fs_map *map);
 
