@@ -253,6 +253,8 @@ int fs_lock(intptr_t fd, int flags) {
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	struct flock fl;
 
+	memset(&fl, 0, sizeof fl);
+
 	if ((flags & FS_LOCK_UNLOCK) != 0)
 		fl.l_type = F_UNLCK;
 	else if ((flags & FS_LOCK_EXCL) != 0)
@@ -260,6 +262,7 @@ int fs_lock(intptr_t fd, int flags) {
 	else
 		fl.l_type = F_RDLCK;
 
+	fl.l_whence = SEEK_SET;
 	fl.l_start = 0;
 	fl.l_len = 0;
 	fl.l_pid = getpid();
