@@ -166,9 +166,10 @@ intptr_t fs_open(const char *path, int flags) {
 		share = 0;
 	}
 
-	if ((flags & FS_APPEND) != 0) {
-		oflag &= ~FILE_WRITE_DATA;
-		oflag |= FILE_APPEND_DATA;
+	/* GENERIC_WRITE includes FILE_WRITE_DATA, which would write at the file position */
+	if ((flags & FS_APPEND) != 0 && (oflag & GENERIC_WRITE) != 0) {
+		oflag &= ~GENERIC_WRITE;
+		oflag |= FILE_GENERIC_WRITE & ~FILE_WRITE_DATA;
 	}
 
 	if ((flags & FS_CREAT) != 0)
