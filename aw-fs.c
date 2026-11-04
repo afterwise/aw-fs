@@ -277,13 +277,10 @@ int fs_lock(intptr_t fd, int flags) {
 
 int fs_truncate(intptr_t fd, size_t n) {
 #if defined(_WIN32)
-	LARGE_INTEGER ln;
-	ln.QuadPart = n;
-	if (SetFilePointerEx((HANDLE) fd, ln, NULL, FILE_BEGIN))
-		if (SetEndOfFile((HANDLE) fd))
-			return 0;
-
-	return -1;
+	/* unlike SetEndOfFile, this leaves the file position alone, as ftruncate does */
+	FILE_END_OF_FILE_INFO info;
+	info.EndOfFile.QuadPart = (LONGLONG) n;
+	return SetFileInformationByHandle((HANDLE) fd, FileEndOfFileInfo, &info, sizeof info) ? 0 : -1;
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	return ftruncate(fd, n);
 #endif
