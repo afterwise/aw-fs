@@ -399,7 +399,10 @@ bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 	wcscat_s(tmp, len, L"/*");
 
 	dir->cur = NULL;
-	if ((dir->dir = _wfindfirst(tmp, &buf->data[0])) < 0)
+	dir->dir = _wfindfirst(tmp, &buf->data[0]);
+	free(tmp);
+
+	if (dir->dir < 0)
 		return false;
 
 	for (n = 1; n < FS_DIRENT_MAX; ++n)
