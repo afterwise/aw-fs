@@ -528,8 +528,15 @@ static void nextdirent(const char **name, int *isdir, time_t *mtime, fs_dir_t *d
 	if (name != NULL)
 		*name = dir->dirent->d_name;
 
-	if (isdir != NULL)
-		*isdir = (dir->dirent->d_type == DT_DIR);
+	if (isdir != NULL) {
+		struct stat st;
+
+		/* not every file system reports the type */
+		if (dir->dirent->d_type == DT_UNKNOWN)
+			*isdir = statdirent(&st, dir->path, dir->dirent->d_name) == 0 && S_ISDIR(st.st_mode);
+		else
+			*isdir = (dir->dirent->d_type == DT_DIR);
+	}
 
 	if (mtime != NULL) {
 		struct stat st;
