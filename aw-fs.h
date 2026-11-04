@@ -152,7 +152,7 @@ enum {
 	FS_APPEND = 0x4,
 	FS_TRUNC = 0x8,
 	FS_CREAT = 0x10,
-	FS_EXCL = 0x20
+	FS_EXCL = 0x20 /* only together with FS_CREAT */
 };
 
 _fs_api intptr_t fs_open(const char *path, int flags);

@@ -203,7 +203,7 @@ intptr_t fs_open(const char *path, int flags) {
 	if ((flags & FS_TRUNC) != 0)
 		creat = (flags & FS_CREAT) != 0 ? CREATE_ALWAYS : TRUNCATE_EXISTING;
 
-	if ((flags & FS_EXCL) != 0)
+	if ((flags & FS_EXCL) != 0 && (flags & FS_CREAT) != 0)
 		creat = CREATE_NEW;
 
 	if ((fd = CreateFileW(
@@ -230,7 +230,7 @@ intptr_t fs_open(const char *path, int flags) {
 	if ((flags & FS_TRUNC) != 0)
 		oflag |= O_TRUNC;
 
-	if ((flags & FS_EXCL) != 0)
+	if ((flags & FS_EXCL) != 0 && (flags & FS_CREAT) != 0)
 		oflag |= O_EXCL;
 
 	if ((flags & FS_CREAT) != 0)
