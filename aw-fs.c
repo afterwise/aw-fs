@@ -328,25 +328,28 @@ off_t fs_seek(intptr_t fd, off_t off, int whence) {
 #endif
 }
 
+/* ReadFile and WriteFile take 32-bit sizes */
+#define FS_IO_CHUNK ((size_t) 1 << 30)
+
 fs_ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 #if defined(_WIN32)
-	fs_ssize_t off;
+	size_t off;
 	DWORD len;
 
-	for (off = 0, len = (DWORD) n; len != 0; off += len, len = (DWORD) (n - off))
-		if (!ReadFile((HANDLE) fd, (char *) p + off, len, &len, NULL))
+	for (off = 0; off < n; off += len)
+		if (!ReadFile((HANDLE) fd, (char *) p + off, (DWORD) (n - off < FS_IO_CHUNK ? n - off : FS_IO_CHUNK), &len, NULL))
 			return -1;
 		else if (len == 0)
 			break;
 
-	return off;
+	return (fs_ssize_t) off;
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	ssize_t err, off, len;
 
 	for (off = 0, len = n; len != 0; off += err > 0 ? err : 0, len = n - off)
 		if ((err = read(fd, (char *) p + off, len)) == 0)
 			break;
-		else if (err < 0)
+		else if (err < 0 && errno != EINTR)
 			return -1;
 
 	return off;
@@ -355,19 +358,21 @@ fs_ssize_t fs_read(intptr_t fd, void *p, size_t n) {
 
 fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 #if defined(_WIN32)
-	fs_ssize_t off;
+	size_t off;
 	DWORD len;
 
-	for (off = 0, len = (DWORD) n; len != 0; off += len, len = (DWORD) (n - off))
-		if (!WriteFile((HANDLE) fd, (const char *) p + off, len, &len, NULL))
+	for (off = 0; off < n; off += len)
+		if (!WriteFile((HANDLE) fd, (const char *) p + off, (DWORD) (n - off < FS_IO_CHUNK ? n - off : FS_IO_CHUNK), &len, NULL))
 			return -1;
+		else if (len == 0)
+			break;
 
-	return off;
+	return (fs_ssize_t) off;
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	ssize_t err, off, len;
 
 	for (off = 0, len = n; len != 0; off += err > 0 ? err : 0, len = n - off)
-		if ((err = write(fd, (const char *) p + off, len)) < 0)
+		if ((err = write(fd, (const char *) p + off, len)) < 0 && errno != EINTR)
 			return -1;
 
 	return off;
