@@ -176,7 +176,7 @@ intptr_t fs_open(const char *path, int flags) {
 		creat = OPEN_ALWAYS;
 
 	if ((flags & FS_TRUNC) != 0)
-		creat = CREATE_ALWAYS;
+		creat = (flags & FS_CREAT) != 0 ? CREATE_ALWAYS : TRUNCATE_EXISTING;
 
 	if ((flags & FS_EXCL) != 0)
 		creat = CREATE_NEW;
