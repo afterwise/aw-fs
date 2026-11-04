@@ -115,6 +115,8 @@ typedef struct {
 	unsigned count;
 } fs_dir_t;
 
+/* paths are UTF-8 on all platforms */
+
 /* status */
 
 _fs_api int fs_stat(const char *path, fs_stat_t *st);

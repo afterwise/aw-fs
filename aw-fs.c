@@ -61,13 +61,38 @@
 #include <stdio.h>
 #include <string.h>
 
+#if defined(_WIN32)
+/* paths are UTF-8; widen allocates room for extra characters after the terminator */
+static wchar_t *widen(const char *s, size_t extra) {
+	int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, NULL, 0);
+	wchar_t *w;
+
+	if (n <= 0 || (w = (wchar_t *) malloc((n + extra) * sizeof (wchar_t))) == NULL)
+		return NULL;
+
+	MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, w, n);
+	return w;
+}
+
+static char *narrow(const wchar_t *w) {
+	int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, NULL, 0, NULL, NULL);
+	char *s;
+
+	if (n <= 0 || (s = (char *) malloc(n)) == NULL)
+		return NULL;
+
+	WideCharToMultiByte(CP_UTF8, 0, w, -1, s, n, NULL, NULL);
+	return s;
+}
+#endif
+
 int fs_stat(const char *path, fs_stat_t *st) {
 #if defined(_WIN32)
-	size_t len = strlen(path) + 1;
-	wchar_t* tmp = calloc(len, sizeof(wchar_t));
-	size_t tmplen;
-	mbstowcs_s(&tmplen, tmp, len, path, _TRUNCATE);
-	int err = _wstat64(tmp, st);
+	wchar_t *tmp = widen(path, 0);
+	int err;
+	if (tmp == NULL)
+		return -1;
+	err = _wstat64(tmp, st);
 	free(tmp);
 	return err;
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
@@ -78,13 +103,12 @@ int fs_stat(const char *path, fs_stat_t *st) {
 void *fs_map(struct fs_map *map, const char *path) {
 #if defined(_WIN32)
 	LARGE_INTEGER size;
-
-	size_t len = strlen(path) + 1;
-	wchar_t* tmp = calloc(len, sizeof(wchar_t));
-	size_t tmplen;
-	mbstowcs_s(&tmplen, tmp, len, path, _TRUNCATE);
+	wchar_t *tmp = widen(path, 0);
 
 	memset(map, 0, sizeof *map);
+
+	if (tmp == NULL)
+		return NULL;
 
 	map->file = CreateFileW(
 		tmp, GENERIC_READ, FILE_SHARE_READ, NULL,
@@ -152,11 +176,10 @@ intptr_t fs_open(const char *path, int flags) {
 	int oflag = GENERIC_READ;
 	int creat = OPEN_EXISTING;
 	int share = FILE_SHARE_READ | FILE_SHARE_DELETE;
+	wchar_t *tmp = widen(path, 0);
 
-	size_t len = strlen(path) + 1;
-	wchar_t* tmp = calloc(len, sizeof(wchar_t));
-	size_t tmplen;
-	mbstowcs_s(&tmplen, tmp, len, path, _TRUNCATE);
+	if (tmp == NULL)
+		return -1;
 
 	if ((flags & FS_RDWR) != 0) {
 		oflag |= GENERIC_WRITE;
@@ -227,7 +250,10 @@ void fs_close(intptr_t fd) {
 
 bool fs_remove(const char* path) {
 #if defined(_WIN32)
-	return !!DeleteFileA(path);
+	wchar_t *tmp = widen(path, 0);
+	bool ok = tmp != NULL && DeleteFileW(tmp);
+	free(tmp);
+	return ok;
 #elif defined(__linux__) || defined(__APPLE__) || defined(__SCE__) || defined(__NINTENDO__)
 	return unlink(path) == 0;
 #endif
@@ -380,10 +406,9 @@ fs_ssize_t fs_write(intptr_t fd, const void *p, size_t n) {
 
 char *fs_getcwd(char *buf, size_t size) {
 #if defined(_WIN32)
-	wchar_t* tmp = calloc(size, sizeof(wchar_t));
-	size_t tmplen;
+	wchar_t *tmp = _wgetcwd(NULL, 0);
 	char *res = NULL;
-	if (tmp != NULL && _wgetcwd(tmp, (int) size) != NULL && wcstombs_s(&tmplen, buf, size, tmp, _TRUNCATE) == 0)
+	if (tmp != NULL && WideCharToMultiByte(CP_UTF8, 0, tmp, -1, buf, (int) size, NULL, NULL) > 0)
 		res = buf;
 	free(tmp);
 	return res;
@@ -401,11 +426,11 @@ bool fs_opendirwalk(fs_dir_t *dir, fs_dirbuf_t *buf, const char *path) {
 
 #if defined(_WIN32)
 	unsigned n;
-	size_t len = strlen(path) + 3;
-	wchar_t* tmp = calloc(len, sizeof(wchar_t));
-	size_t tmplen;
-	mbstowcs_s(&tmplen, tmp, len, path, _TRUNCATE);
-	wcscat_s(tmp, len, L"/*");
+	wchar_t *tmp = widen(path, 2);
+
+	if (tmp == NULL)
+		return false;
+	wcscat_s(tmp, wcslen(tmp) + 3, L"/*");
 
 	dir->cur = NULL;
 	dir->dir = _wfindfirst(tmp, &buf->data[0]);
@@ -511,15 +536,12 @@ static int statdirent(struct stat *st, const char *dir, const char *ent) {
 #if defined(_WIN32)
 static void nextdata(const char **name, int *isdir, time_t *mtime, fs_dir_t *dir) {
 	struct _wfinddata_t *data = dir->data;
-	size_t len;
 
 	if (name != NULL) {
 		if (dir->cur != NULL)
 			free(dir->cur);
-		len = wcslen(data->name) + 1;
-		dir->cur = calloc(len, sizeof(char));
-		wcstombs_s(&len, dir->cur, len, data->name, _TRUNCATE);
-		*name = dir->cur;
+		dir->cur = narrow(data->name);
+		*name = dir->cur != NULL ? dir->cur : "";
 	}
 
 	if (isdir != NULL)
